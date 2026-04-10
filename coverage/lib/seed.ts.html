@@ -1,0 +1,241 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for lib/seed.ts</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../index.html">All files</a> / <a href="index.html">lib</a> seed.ts</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>0/21</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/8</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/3</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>0/19</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import bcrypt from 'bcrypt';</span>
+<span class="cstat-no" title="statement not covered" >import { User, MenuItem, TiffinItem } from './models';</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >export async function <span class="fstat-no" title="function not covered" >s</span>eedAdmin(</span>) {
+  const adminUsername = <span class="cstat-no" title="statement not covered" >process.env.ADMIN_USERNAME || 'admin';</span>
+  const adminPassword = <span class="cstat-no" title="statement not covered" >process.env.ADMIN_PASSWORD || 'admin';</span>
+  const hashedPassword = <span class="cstat-no" title="statement not covered" >await bcrypt.hash(adminPassword, 10);</span>
+<span class="cstat-no" title="statement not covered" >  await (User as any).findOneAndUpdate(</span>
+    { role: 'admin' },
+    { name: 'Restaurant Admin', contact: adminUsername.toLowerCase(), password: hashedPassword },
+    { upsert: true, new: true }
+  );
+<span class="cstat-no" title="statement not covered" >  console.log(`✅ Admin user verified: ${adminUsername}`);</span>
+}
+&nbsp;
+<span class="cstat-no" title="statement not covered" >export async function <span class="fstat-no" title="function not covered" >s</span>eedMenu(</span>) {
+  const count = <span class="cstat-no" title="statement not covered" >await MenuItem.countDocuments();</span>
+<span class="cstat-no" title="statement not covered" >  if (count &gt;= 10) <span class="cstat-no" title="statement not covered" >return;</span></span>
+<span class="cstat-no" title="statement not covered" >  await MenuItem.deleteMany({});</span>
+<span class="cstat-no" title="statement not covered" >  await MenuItem.insertMany([</span>
+    { name: 'Special Thali', price: 180, available: true, description: '4 Roti, Rice, Seasonal Sabzi, Dal Tadka, and fresh Salad.', category: "🌟 Today's Special" },
+    { name: 'Gajar Ka Halwa', price: 100, available: true, description: 'Traditional winter dessert made with grated carrots, milk, and nuts.', category: "🌟 Today's Special" },
+    { name: 'Poori Sabji', price: 100, available: true, description: '4 fluffy pooris served with spicy potato curry.', category: "🌟 Today's Special" },
+    { name: 'Budget Meal (₹99)', price: 99, available: true, description: '3 Roti, Dal, Dry Sabzi, and Pickle.', category: '💰 Budget Meals' },
+    { name: 'Budget Meal (₹149)', price: 149, available: true, description: '3 Roti, Rice, Dal Makhani, Mix Veg, and Curd.', category: '💰 Budget Meals' },
+    { name: 'Dal + Rice Combo', price: 149, available: true, description: 'Comforting yellow Dal Tadka served with Jeera Rice and salad.', category: '🍱 Value Combos' },
+    { name: 'Paneer + 2 Naan Combo', price: 199, available: true, description: 'Rich Paneer Butter Masala served with 2 Butter Naan.', category: '🍱 Value Combos' },
+    { name: 'Dal Tadka', price: 120, available: true, description: 'Yellow lentils cooked with onions, tomatoes and garlic.', category: '🍲 Main Course' },
+    { name: 'Dal Makhani', price: 160, available: true, description: 'Slow-cooked black lentils in a rich, creamy sauce.', category: '🍲 Main Course' },
+    { name: 'Shahi Paneer', price: 220, available: true, description: 'Soft paneer cubes in a thick, creamy nut-based gravy.', category: '🍲 Main Course' },
+    { name: 'Kadai Paneer', price: 200, available: true, description: 'Paneer tossed with bell peppers and onions in a spicy masala.', category: '🍲 Main Course' },
+    { name: 'Paneer Butter Masala', price: 210, available: true, description: 'Paneer cooked in a rich and creamy tomato and butter gravy.', category: '🍲 Main Course' },
+    { name: 'Palak Paneer', price: 190, available: true, description: 'Nutritious spinach gravy with soft paneer cubes.', category: '🍲 Main Course' },
+    { name: 'Mix Veg', price: 140, available: true, description: 'Assorted seasonal vegetables cooked with aromatic spices.', category: '🍲 Main Course' },
+    { name: 'Veg Biryani', price: 180, available: true, description: 'Aromatic layered rice and vegetable dish cooked with spices.', category: '🍲 Main Course' },
+    { name: 'Butter Naan', price: 45, available: true, description: 'Soft naan brushed with generous butter.', category: '🍲 Main Course' },
+    { name: 'Aloo Paratha', price: 50, available: true, description: 'Whole wheat flatbread stuffed with spiced potatoes.', category: '🍲 Main Course' },
+    { name: 'Plain Rice', price: 80, available: true, description: 'Steamed basmati rice.', category: '🍲 Main Course' },
+    { name: 'Jeera Rice', price: 100, available: true, description: 'Basmati rice tempered with cumin seeds.', category: '🍲 Main Course' },
+  ]);
+<span class="cstat-no" title="statement not covered" >  console.log('✅ Menu seeded');</span>
+}
+&nbsp;
+<span class="cstat-no" title="statement not covered" >export async function <span class="fstat-no" title="function not covered" >s</span>eedTiffin(</span>) {
+  const count = <span class="cstat-no" title="statement not covered" >await TiffinItem.countDocuments();</span>
+<span class="cstat-no" title="statement not covered" >  if (count &gt; 0) <span class="cstat-no" title="statement not covered" >return;</span></span>
+<span class="cstat-no" title="statement not covered" >  await TiffinItem.insertMany([</span>
+    { name: 'Dal Makhani + Rice', price: 120, available: true, meta: 'Lunch · Veg', emoji: '🍛' },
+    { name: 'Aloo Paratha + Curd', price: 80, available: true, meta: 'Breakfast · Veg', emoji: '🫓' },
+    { name: 'Paneer Sabzi + Roti', price: 130, available: true, meta: 'Dinner · Veg', emoji: '🍲' },
+  ]);
+<span class="cstat-no" title="statement not covered" >  console.log('✅ Tiffin items seeded');</span>
+}</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-04-10T14:02:14.903Z
+            </div>
+        <script src="../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../sorter.js"></script>
+        <script src="../block-navigation.js"></script>
+    </body>
+</html>
+    

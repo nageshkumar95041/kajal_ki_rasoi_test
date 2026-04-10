@@ -1,4 +1,4 @@
-import mongoose, { Schema, model, models } from 'mongoose';
+import mongoose, { Schema, model, models, type Model } from 'mongoose';
 
 // ─── User ─────────────────────────────────────────────────────────────────────
 const userSchema = new Schema({
@@ -7,14 +7,14 @@ const userSchema = new Schema({
   password: { type: String, required: true },
   role: { type: String, default: 'user' },
   isTrusted: { type: Boolean, default: false },
-  isVerified: { type: Boolean, default: false }, // BUG FIX: was `true` — new users must verify first
+  isVerified: { type: Boolean, default: false },
   verificationOtp: { type: String },
   otpExpires: { type: Date },
   resetPasswordToken: { type: String },
   resetPasswordExpires: { type: Date },
 }, { toJSON: { virtuals: true } });
 
-export const User = models.User || model('User', userSchema);
+export const User: Model<any> = models.User || model('User', userSchema);
 
 // ─── Order ────────────────────────────────────────────────────────────────────
 const orderSchema = new Schema({
@@ -48,7 +48,7 @@ const orderSchema = new Schema({
   failedDeliveryReason: { type: String },
 }, { toJSON: { virtuals: true } });
 
-export const Order = models.Order || model('Order', orderSchema);
+export const Order: Model<any> = models.Order || model('Order', orderSchema);
 
 // ─── Subscription ─────────────────────────────────────────────────────────────
 const subscriptionSchema = new Schema({
@@ -66,7 +66,7 @@ const subscriptionSchema = new Schema({
   timestamp: { type: Date, default: Date.now },
 });
 
-export const Subscription = models.Subscription || model('Subscription', subscriptionSchema);
+export const Subscription: Model<any> = models.Subscription || model('Subscription', subscriptionSchema);
 
 // ─── TempCart ─────────────────────────────────────────────────────────────────
 const cartSchema = new Schema({
@@ -82,7 +82,7 @@ const cartSchema = new Schema({
   customerLng: { type: Number },
 });
 
-export const TempCart = models.TempCart || model('TempCart', cartSchema);
+export const TempCart: Model<any> = models.TempCart || model('TempCart', cartSchema);
 
 // ─── TempSubscription ─────────────────────────────────────────────────────────
 const tempSubscriptionSchema = new Schema({
@@ -99,7 +99,7 @@ const tempSubscriptionSchema = new Schema({
   startDate: { type: Date, required: true },
 });
 
-export const TempSubscription = models.TempSubscription || model('TempSubscription', tempSubscriptionSchema);
+export const TempSubscription: Model<any> = models.TempSubscription || model('TempSubscription', tempSubscriptionSchema);
 
 // ─── MenuItem ─────────────────────────────────────────────────────────────────
 const menuItemSchema = new Schema({
@@ -111,7 +111,7 @@ const menuItemSchema = new Schema({
   available: { type: Boolean, default: true },
 });
 
-export const MenuItem = models.MenuItem || model('MenuItem', menuItemSchema);
+export const MenuItem: Model<any> = models.MenuItem || model('MenuItem', menuItemSchema);
 
 // ─── TiffinItem ───────────────────────────────────────────────────────────────
 const tiffinItemSchema = new Schema({
@@ -122,7 +122,7 @@ const tiffinItemSchema = new Schema({
   available: { type: Boolean, default: true },
 });
 
-export const TiffinItem = models.TiffinItem || model('TiffinItem', tiffinItemSchema);
+export const TiffinItem: Model<any> = models.TiffinItem || model('TiffinItem', tiffinItemSchema);
 
 // ─── Agent ────────────────────────────────────────────────────────────────────
 const agentSchema = new Schema({
@@ -139,7 +139,7 @@ const agentSchema = new Schema({
 });
 
 agentSchema.index({ location: '2dsphere' });
-export const Agent = models.Agent || model('Agent', agentSchema);
+export const Agent: Model<any> = models.Agent || model('Agent', agentSchema);
 
 // ─── SiteSettings ─────────────────────────────────────────────────────────────
 const siteSettingsSchema = new Schema({
@@ -147,4 +147,4 @@ const siteSettingsSchema = new Schema({
   value: { type: Schema.Types.Mixed },
 }, { timestamps: true, strict: false });
 
-export const SiteSettings = models.SiteSettings || model('SiteSettings', siteSettingsSchema);
+export const SiteSettings: Model<any> = models.SiteSettings || model('SiteSettings', siteSettingsSchema);

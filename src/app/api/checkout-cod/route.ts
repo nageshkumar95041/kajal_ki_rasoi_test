@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
-  const setting = await SiteSettings.findOne({ key: 'onlinePaymentEnabled' }).lean() as { value: any } | null;
+ const setting = await SiteSettings.findOne({ key: 'onlinePaymentEnabled' }).lean() as unknown as { value: any } | null;
   const val = setting?.value;
   const onlineEnabled = val === true || val === 'true' || val === 1 || val === '1';
 

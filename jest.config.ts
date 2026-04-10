@@ -30,6 +30,20 @@ const config: Config = {
       transform: {
         '^.+\\.tsx?$': ['ts-jest', { tsconfig: { esModuleInterop: true } }],
       },
+      // Unit tests only measure the lib files they actually test
+      collectCoverageFrom: [
+        'src/lib/utils.ts',
+        'src/lib/auth.ts',
+        '!src/**/*.d.ts',
+      ],
+      coverageThreshold: {
+        global: {
+          branches: 70,
+          functions: 75,
+          lines: 75,
+          statements: 75,
+        },
+      },
     },
     // --- JSDOM environment for React component & hook tests ---
     {
@@ -45,6 +59,10 @@ const config: Config = {
       transform: {
         '^.+\\.tsx?$': ['ts-jest', { tsconfig: { jsx: 'react-jsx', esModuleInterop: true } }],
       },
+      collectCoverageFrom: [
+        'src/hooks/**/*.ts',
+        '!src/**/*.d.ts',
+      ],
     },
     // --- Integration tests (API route logic) ---
     {
@@ -56,8 +74,21 @@ const config: Config = {
       transform: {
         '^.+\\.tsx?$': ['ts-jest', { tsconfig: { esModuleInterop: true } }],
       },
+      collectCoverageFrom: [
+        'src/app/api/**/*.ts',
+        '!src/**/*.d.ts',
+      ],
+      coverageThreshold: {
+        global: {
+          branches: 70,
+          functions: 75,
+          lines: 75,
+          statements: 75,
+        },
+      },
     },
   ],
+  // Global coverage — used when running ALL tests together (npm run test:coverage)
   collectCoverageFrom: [
     'src/lib/**/*.ts',
     'src/app/api/**/*.ts',

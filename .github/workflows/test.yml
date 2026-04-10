@@ -20,10 +20,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts
 
       - name: Run unit tests with coverage
         run: npx jest --testPathPatterns="unit" --coverage --coverageReporters=text,lcov
@@ -54,10 +53,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts
 
       - name: Run component tests
         run: npx jest --testPathPatterns="component"
@@ -74,10 +72,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts
 
       - name: TypeScript compile check
         run: npx tsc --noEmit
@@ -92,10 +89,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts
 
       - name: Run ESLint
         run: npm run lint
@@ -104,7 +100,6 @@ jobs:
   e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
-    # Only run E2E on PRs to main/develop, or when BASE_URL is set
     if: >
       github.event_name == 'pull_request' ||
       vars.RUN_E2E == 'true'
@@ -114,10 +109,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox
@@ -125,7 +119,6 @@ jobs:
       - name: Run E2E tests against feature branch
         run: npx playwright test
         env:
-          # Set BASE_URL to your Railway / Vercel / Render feature branch URL
           BASE_URL: ${{ vars.FEATURE_BRANCH_URL || 'http://localhost:3000' }}
           CI: true
 

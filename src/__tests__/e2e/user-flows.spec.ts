@@ -42,10 +42,11 @@ test.describe('Authentication', () => {
   test('register page is accessible', async ({ page }) => {
     await page.goto('/register');
     await page.waitForLoadState('networkidle', { timeout: 15000 });
-    // FIX: target the first password field by id to avoid strict mode violation
-    // (register page has both #reg-password and #reg-confirm)
-    await expect(page.locator('#reg-password, input[type="password"]').first()).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('input[placeholder*="name" i], input[name="name"]')).toBeVisible();
+    // Use exact IDs from the register form component
+    await expect(page.locator('#reg-name')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#reg-contact')).toBeVisible();
+    await expect(page.locator('#reg-password')).toBeVisible();
+    await expect(page.locator('#reg-confirm')).toBeVisible();
   });
 
   test('register shows validation for missing fields', async ({ page }) => {
@@ -117,17 +118,20 @@ test.describe('Menu Page', () => {
 test.describe('Cart', () => {
   test('adding an item to cart updates cart count', async ({ page }) => {
     await page.goto('/menu');
-    await page.waitForLoadState('networkidle', { timeout: 20000 });
+    await page.waitForLoadState('networkidle', { timeout: 25000 });
 
     const cartBefore = await page.locator(
       '[data-testid="cart-count"], .cart-count, .cart-badge'
     ).first().textContent().catch(() => '0');
 
-    await page.locator(
+    // FIX: give the Add button a longer timeout since Render is slow to load menu data
+    const addBtn = page.locator(
       'button:has-text("Add"), button:has-text("+"), [data-testid="add-to-cart"]'
-    ).first().click();
+    ).first();
+    await expect(addBtn).toBeVisible({ timeout: 20000 });
+    await addBtn.click();
 
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
     const cartAfter = await page.locator(
       '[data-testid="cart-count"], .cart-count, .cart-badge'
     ).first().textContent().catch(() => '1');

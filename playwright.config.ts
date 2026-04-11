@@ -5,23 +5,22 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * Local:   BASE_URL defaults to http://localhost:3000
  * CI/CD:   Set BASE_URL env var to your feature branch deployment URL
- *          e.g. https://kajal-ki-rasoi-feature.up.railway.app
+ *          e.g. https://kajal-ki-rasoi-test.onrender.com
+ *
+ * Free Render note: instances spin down after inactivity. The globalSetup
+ * file pings the service until it responds before any tests run.
  */
 
 export default defineConfig({
   testDir: './src/__tests__/e2e',
   testMatch: '**/*.spec.ts',
 
-  /* Run tests in parallel */
+  // Wake up the Render instance before the test suite starts
+  globalSetup: './src/__tests__/e2e/global-setup.ts',
+
   fullyParallel: true,
-
-  /* Fail the build if test.only is accidentally committed */
   forbidOnly: !!process.env.CI,
-
-  /* Retry failed tests once on CI */
   retries: process.env.CI ? 1 : 0,
-
-  /* Limit parallel workers on CI to avoid flakiness */
   workers: process.env.CI ? 2 : undefined,
 
   reporter: [
@@ -31,21 +30,15 @@ export default defineConfig({
   ],
 
   use: {
-    /* Base URL — override with BASE_URL env var for feature branch testing */
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
 
-    /* Collect traces on first retry for debugging */
     trace: 'on-first-retry',
-
-    /* Screenshot only on failure */
     screenshot: 'only-on-failure',
-
-    /* Video on failure */
     video: 'retain-on-failure',
 
-    /* Reasonable timeouts */
-    actionTimeout:     10_000,
-    navigationTimeout: 15_000,
+    // FIX: increased timeouts to tolerate Render's slow cold-start responses
+    actionTimeout:     20_000,
+    navigationTimeout: 30_000,
   },
 
   projects: [
@@ -63,7 +56,6 @@ export default defineConfig({
     },
   ],
 
-  /* Start local dev server automatically when BASE_URL is not set externally */
   webServer: process.env.BASE_URL
     ? undefined
     : {

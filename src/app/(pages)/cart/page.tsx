@@ -20,7 +20,7 @@ export default function CartPage() {
   }
 
   const subtotal = cart.reduce((s, i) => s + i.price * (i.quantity || 1), 0);
-  const deliveryFee = subtotal > 0 && subtotal < 199 ? 40 : 0;
+  const deliveryFee = 0; // temporarily free — will be enabled later
   const grandTotal = subtotal + deliveryFee;
 
   return (
@@ -52,21 +52,14 @@ export default function CartPage() {
 
           {cart.length > 0 && (
             <div className="cart-total">
-              {subtotal < 199 && (
-                <p style={{ color: '#e74c3c', fontSize: '0.95rem', textAlign: 'right', marginBottom: 10 }}>
-                  Add ₹{199 - subtotal} more for <strong>FREE delivery!</strong>
-                </p>
-              )}
-              {subtotal >= 199 && (
-                <p style={{ color: '#2ecc71', fontSize: '0.95rem', textAlign: 'right', fontWeight: 'bold', marginBottom: 10 }}>
-                  🎉 You unlocked FREE delivery!
-                </p>
-              )}
+              <p style={{ color: '#27ae60', fontSize: '0.95rem', textAlign: 'right', fontWeight: 'bold', marginBottom: 10 }}>
+                🎉 Free delivery — we are new and delivering with love!
+              </p>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '2rem', fontSize: '1.1rem', color: '#666' }}>
                 <span>Subtotal:</span><span>₹{subtotal}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '2rem', fontSize: '1.1rem', borderBottom: '1px solid #eee', paddingBottom: 10, color: '#666' }}>
-                <span>Delivery Fee:</span><span>₹{deliveryFee}</span>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '2rem', fontSize: '1.1rem', borderBottom: '1px solid #eee', paddingBottom: 10, color: '#27ae60' }}>
+                <span>Delivery:</span><span>FREE 🚴</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '2rem', marginTop: 15, fontSize: '1.4rem', color: '#2c3e50' }}>
                 <span>Grand Total:</span><span>₹{grandTotal}</span>

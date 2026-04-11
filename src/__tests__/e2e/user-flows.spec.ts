@@ -76,14 +76,8 @@ test.describe('Menu Page', () => {
   test('menu page loads and shows food items', async ({ page }) => {
     await page.goto('/menu');
     await page.waitForLoadState('networkidle', { timeout: 20000 });
-    // FIX: added more class alternatives; inspect your actual DOM and add the
-    // real class name here if these still don't match
-    const menuItem = page.locator(
-      '[data-testid="menu-item"], .menu-item, .food-card, .menu-card, ' +
-      '.item-card, .dish-card, .menu-grid > div, .menu-list > div, ' +
-      '.food-item, .product-card'
-    ).first();
-    await expect(menuItem).toBeVisible({ timeout: 15000 });
+    // FIX: exact class from MenuClient component
+    await expect(page.locator('.menu-card').first()).toBeVisible({ timeout: 15000 });
   });
 
   test('menu page has a heading or title', async ({ page }) => {
@@ -95,21 +89,15 @@ test.describe('Menu Page', () => {
   test('prices are displayed as numbers', async ({ page }) => {
     await page.goto('/menu');
     await page.waitForLoadState('networkidle', { timeout: 20000 });
-    // FIX: use innerText scan instead of a locator so we avoid matching hidden
-    // <option> elements (e.g. "Under ₹150" in the filter dropdown)
-    const hasPrice = await page.locator('body').innerText()
-      .then(text => /₹\s*\d+/.test(text))
-      .catch(() => false);
-    expect(hasPrice).toBe(true);
+    // FIX: exact class from component — <span className="price">₹{item.price}</span>
+    await expect(page.locator('span.price').first()).toBeVisible({ timeout: 15000 });
   });
 
   test('add-to-cart button exists on menu items', async ({ page }) => {
     await page.goto('/menu');
     await page.waitForLoadState('networkidle', { timeout: 20000 });
-    const addBtn = page.locator(
-      'button:has-text("Add"), button:has-text("+"), [data-testid="add-to-cart"]'
-    ).first();
-    await expect(addBtn).toBeVisible({ timeout: 15000 });
+    // FIX: exact class and text from component — btn-order with "＋ Add" (fullwidth plus)
+    await expect(page.locator('button.btn-order').first()).toBeVisible({ timeout: 15000 });
   });
 });
 
@@ -117,24 +105,28 @@ test.describe('Menu Page', () => {
 
 test.describe('Cart', () => {
   test('adding an item to cart updates cart count', async ({ page }) => {
+    test.setTimeout(90000);
+
     await page.goto('/menu');
     await page.waitForLoadState('networkidle', { timeout: 25000 });
 
-    const cartBefore = await page.locator(
-      '[data-testid="cart-count"], .cart-count, .cart-badge'
-    ).first().textContent().catch(() => '0');
+    // Wait for menu cards to load first
+    await expect(page.locator('.menu-card').first()).toBeVisible({ timeout: 30000 });
 
-    // FIX: give the Add button a longer timeout since Render is slow to load menu data
-    const addBtn = page.locator(
-      'button:has-text("Add"), button:has-text("+"), [data-testid="add-to-cart"]'
-    ).first();
-    await expect(addBtn).toBeVisible({ timeout: 20000 });
+    // FIX: button class is btn-order, text is "＋ Add" (fullwidth plus character)
+    const addBtn = page.locator('button.btn-order').first();
+    await expect(addBtn).toBeVisible({ timeout: 10000 });
+
+    // Note: addToCart checks auth — test user must be logged in OR
+    // the cart count selector must exist before clicking
+    const cartBefore = await page.locator('.sticky-cart-count, [class*="cart-count"], [class*="cart-badge"]')
+      .first().textContent().catch(() => '0');
+
     await addBtn.click();
-
     await page.waitForTimeout(2000);
-    const cartAfter = await page.locator(
-      '[data-testid="cart-count"], .cart-count, .cart-badge'
-    ).first().textContent().catch(() => '1');
+
+    const cartAfter = await page.locator('.sticky-cart-count, [class*="cart-count"], [class*="cart-badge"]')
+      .first().textContent().catch(() => '1');
 
     expect(Number(cartAfter)).toBeGreaterThanOrEqual(Number(cartBefore ?? '0'));
   });

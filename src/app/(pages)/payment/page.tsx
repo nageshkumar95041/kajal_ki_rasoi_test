@@ -242,17 +242,10 @@ export default function PaymentPage() {
     }, () => alert('Location denied. Please enable location services.'));
   }
 
-  async function triggerEstimate(lat?: string, lng?: string, addr?: string) {
-    const latV = lat || customerLat;
-    const lngV = lng || customerLng;
-    const adrV = addr || `${flat}, ${area}, ${city}, ${pincode}`;
-    if (!latV || !lngV) return;
-    try {
-      const res  = await fetch('/api/delivery/estimate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customerLat: latV, customerLng: lngV, customerAddress: adrV }) });
-      const data = await res.json();
-      if (data.success) { const fee = parseFloat(data.deliveryFee) || 0; setDeliveryFee(fee); setDeliveryMsg(`🚴 Delivery: ₹${fee} · ${data.estimatedTime}`); }
-      else setDeliveryMsg('');
-    } catch { setDeliveryMsg(''); }
+  async function triggerEstimate(_lat?: string, _lng?: string, _addr?: string) {
+    // Delivery charge temporarily disabled — always free
+    setDeliveryFee(0);
+    setDeliveryMsg('🚴 Free delivery — enjoy!');
   }
 
   function applyCoupon() {
@@ -355,7 +348,7 @@ export default function PaymentPage() {
           <div style={{ marginBottom: '1.5rem', padding: '1.5rem', background: '#f8f9fa', borderRadius: 8, textAlign: 'center', color: '#2c3e50', lineHeight: 1.6 }}>
             <strong>{cart.reduce((s, i) => s + (i.quantity || 1), 0)} Item(s)</strong> | Subtotal: ₹{subtotal}<br />
             {discount > 0 && <span style={{ color: '#27ae60' }}>Discount: -₹{discount}<br /></span>}
-            {deliveryFee > 0 ? <span style={{ color: '#e74c3c' }}>Delivery: +₹{deliveryFee}<br /></span> : subtotal > 0 ? <span style={{ color: '#27ae60' }}>Delivery: FREE<br /></span> : null}
+            <span style={{ color: '#27ae60' }}>Delivery: FREE 🚴<br /></span>
             <span style={{ color: '#e67e22', fontSize: '1.5rem', fontWeight: 'bold' }}>Total: ₹{finalTotal}</span>
           </div>
 

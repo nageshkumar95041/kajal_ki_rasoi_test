@@ -86,7 +86,37 @@ export function initToasts() {
   window.showToast = (itemName: string, price: number) => {
     const clean = escapeHTML(itemName.replace(/\s*\([^)]*\)/g, ''));
     const t     = TYPE_MAP.cart;
-    createToast(`
+
+    // If a cart toast already exists — update it instead of stacking
+    const existing = document.querySelector('.toast-cart-item') as HTMLElement | null;
+    if (existing) {
+      // Reset the auto-dismiss timer
+      clearTimeout((existing as any).__timer);
+      const newTimer = setTimeout(() => removeToast(existing, newTimer), DURATION_MS);
+      (existing as any).__timer = newTimer;
+
+      // Update content
+      const titleEl = existing.querySelector('.toast-title');
+      const subEl   = existing.querySelector('.toast-sub');
+      if (titleEl) titleEl.textContent = 'Added to cart!';
+      if (subEl)   subEl.innerHTML = `<strong style="color:#1a1a1a">${clean}</strong> &nbsp;·&nbsp; <span style="color:${t.color};font-weight:700">₹${price}</span>`;
+
+      // Restart progress bar
+      const bar = existing.querySelector('.toast-bar') as HTMLElement | null;
+      if (bar) {
+        bar.style.animation = 'none';
+        requestAnimationFrame(() => {
+          if (bar) bar.style.animation = '';
+        });
+      }
+
+      // Bump animation to draw attention
+      existing.style.animation = 'none';
+      requestAnimationFrame(() => { existing.style.animation = ''; });
+      return;
+    }
+
+    const wrap = createToast(`
       <div class="toast-card" style="--t-color:${t.color};--t-bg:${t.bg};--t-border:${t.border}">
         <div class="toast-top">
           <span class="toast-icon-wrap">${t.icon}</span>
@@ -103,11 +133,18 @@ export function initToasts() {
         <div class="toast-progress-track"><div class="toast-bar" style="--dur:${DURATION_MS}ms;background:${t.color}"></div></div>
       </div>`, DURATION_MS);
 
-    // "Keep Browsing" also dismisses
-    document.querySelector('.toast-dismiss')?.addEventListener('click', () => {
-      const wrap = document.querySelector('.toast-item:last-child') as HTMLElement;
-      if (wrap) removeToast(wrap, (wrap as any).__timer);
+    // Mark this toast as the cart toast so we can find it later
+    wrap.classList.add('toast-cart-item');
+
+    // "Keep Browsing" dismisses
+    wrap.querySelector('.toast-dismiss')?.addEventListener('click', () => {
+      removeToast(wrap, (wrap as any).__timer);
     });
+
+    // Clean up the cart marker when removed so next add creates fresh
+    wrap.addEventListener('animationend', () => {
+      wrap.classList.remove('toast-cart-item');
+    }, { once: true });
   };
 
   /* ── System toast ────────────────────────────────────────────────────── */

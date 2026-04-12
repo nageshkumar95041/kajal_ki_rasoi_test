@@ -3829,3 +3829,36 @@ body.admin-body {
     padding: 1rem !important;
   }
 }
+/* ── Mobile white space fixes ─────────────────────────────────────────────── */
+
+/* Prevent rubber-band overscroll revealing white background on iOS */
+html, body {
+  overscroll-behavior-y: none;
+}
+
+/* On mobile, body background should match footer so overscroll gap is dark */
+@media (max-width: 768px) {
+  body {
+    background-color: #0f0700;
+  }
+  /* Inner page sections restore cream background */
+  .hero,
+  .menu-section,
+  .payment-page,
+  .cart-page,
+  .auth-page,
+  .profile-page,
+  .contact-section,
+  .about-section,
+  section {
+    background-color: #faf8f4;
+  }
+  /* Add padding at the bottom so sticky cart doesn't cover content */
+  body {
+    padding-bottom: 70px;
+  }
+  /* Hero should still go edge to edge */
+  .hero {
+    padding-bottom: 80px;
+  }
+}

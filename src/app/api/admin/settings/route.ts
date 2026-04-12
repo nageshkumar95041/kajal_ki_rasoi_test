@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const key = req.nextUrl.searchParams.get('key');
     if (!key) return NextResponse.json({ error: 'key required' }, { status: 400 });
     const setting = (await SiteSettings.findOne({ key }).lean()) as unknown as { key: string; value: any } | null;
-    console.log('[settings GET] key:', key, 'raw:', JSON.stringify(setting));
+    // console.log('[settings GET] key:', key, 'raw:', JSON.stringify(setting));
     return NextResponse.json({ value: setting?.value ?? null });
   } catch (err) {
     console.error('[settings GET] error:', err);

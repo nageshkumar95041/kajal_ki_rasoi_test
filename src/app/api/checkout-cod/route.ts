@@ -39,10 +39,16 @@ export async function POST(req: NextRequest) {
 
   const itemNames = normalizedItems.map(item => item.name);
   const [dbItems, dbTiffin] = await Promise.all([
-    MenuItem.find({ name: { $in: itemNames }, available: true }),
-    TiffinItem.find({ name: { $in: itemNames }, available: true }),
+    MenuItem.find({ name: { $in: itemNames } }),
+    TiffinItem.find({ name: { $in: itemNames } }),
   ]);
-  const pricedCart = priceCartItems(normalizedItems, [...dbItems, ...dbTiffin]);
+
+  // Prefer MenuItem prices — only use TiffinItem for names not found in MenuItem
+  const menuNames = new Set(dbItems.map((i: any) => i.name));
+  const tiffinOnly = dbTiffin.filter((i: any) => !menuNames.has(i.name));
+  const priceSources = [...dbItems, ...tiffinOnly];
+
+  const pricedCart = priceCartItems(normalizedItems, priceSources);
   if (!pricedCart || pricedCart.subtotal <= 0) {
     return NextResponse.json({ error: 'Invalid or unavailable cart items.' }, { status: 400 });
   }

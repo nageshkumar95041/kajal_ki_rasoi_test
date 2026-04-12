@@ -475,7 +475,7 @@ export default function SubscriptionClient() {
             <div style={{ padding: '1.3rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
 
               {/* Name + Contact */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 }}>
                 <div>
                   <label style={labelStyle}>Full Name</label>
                   <input type="text" placeholder="Your name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={inputStyle} />
@@ -557,8 +557,8 @@ export default function SubscriptionClient() {
                   Coupon Code{' '}
                   <span style={{ color: '#555', fontWeight: 400, fontSize: '0.6rem', textTransform: 'none', letterSpacing: 0 }}>optional</span>
                 </label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input type="text" placeholder="e.g. APNA50" value={form.coupon} onChange={e => setForm({ ...form, coupon: e.target.value })} style={{ ...inputStyle, flex: 1, width: 'auto' }} />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
+                  <input type="text" placeholder="e.g. APNA50" value={form.coupon} onChange={e => setForm({ ...form, coupon: e.target.value })} style={{ ...inputStyle, width: '100%' }} />
                   <button type="button" onClick={applyCoupon} style={{ background: 'transparent', border: '1px solid #e67e22', borderRadius: 8, padding: '10px 16px', color: '#e67e22', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', cursor: 'pointer' }}>
                     APPLY
                   </button>
@@ -573,7 +573,7 @@ export default function SubscriptionClient() {
               </div>
 
               {/* Action buttons — original layout */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, paddingTop: 4 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, paddingTop: 4 }}>
                 <button type="button" onClick={() => setModal(null)} style={{ background: 'transparent', border: '1px solid #3a2a10', borderRadius: 8, padding: '11px 0', color: '#888', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.05em' }}>
                   CANCEL
                 </button>

@@ -357,7 +357,7 @@ export default function PaymentPage() {
             {/* ── QUICK CHECKOUT MODE — phone + address already saved ── */}
             {quickCheckout && isLoggedIn ? (
               <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '1.25rem', marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
                   <span style={{ fontWeight: 700, color: '#15803d', fontSize: '0.9rem' }}>✅ Delivering to saved details</span>
                   <button type="button" onClick={() => setQuickCheckout(false)}
                     style={{ fontSize: '0.78rem', color: '#e67e22', background: 'none', border: '1px solid #e67e22', borderRadius: 20, padding: '2px 10px', cursor: 'pointer' }}>
@@ -394,7 +394,7 @@ export default function PaymentPage() {
                   </div>
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.5rem' }}>
                   <h3 style={{ fontSize: '1.1rem', color: '#2c3e50', margin: 0 }}>Delivery Address</h3>
                   <button type="button" onClick={geolocateAndFill} style={{ background: '#e67e22', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 20, cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
                     📍 Use My Location
@@ -502,17 +502,17 @@ export default function PaymentPage() {
                 {flatHelperVisible && <div style={{ fontSize: 12, color: '#888', marginTop: -6, marginBottom: 4 }}>Enter your flat or house number to complete the address</div>}
                 <input type="text" placeholder="Area, Street, Sector, Village *" required value={area} onChange={e => setArea(e.target.value)} onBlur={() => triggerEstimate()} style={inp} />
                 <input type="text" placeholder="Nearby Landmark (Optional)" value={landmark} onChange={e => setLandmark(e.target.value)} style={inp} />
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                  <input type="text" placeholder="Town/City *" required value={city} onChange={e => setCity(e.target.value)} onBlur={() => triggerEstimate()} style={{ ...inp, flex: 1 }} />
-                  <input type="text" placeholder="Pincode *" required value={pincode} onChange={e => setPincode(e.target.value)} onBlur={() => triggerEstimate()} style={{ ...inp, flex: 1 }} />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                  <input type="text" placeholder="Town/City *" required value={city} onChange={e => setCity(e.target.value)} onBlur={() => triggerEstimate()} style={inp} />
+                  <input type="text" placeholder="Pincode *" required value={pincode} onChange={e => setPincode(e.target.value)} onBlur={() => triggerEstimate()} style={inp} />
                 </div>
                 {deliveryMsg && <div style={{ fontSize: '0.9rem', color: '#27ae60', fontWeight: 'bold', textAlign: 'center' }}>{deliveryMsg}</div>}
               </>
             )}
 
             <h3 id="coupon-section-heading" style={{ fontSize: '1.1rem', color: '#2c3e50', marginTop: '1rem' }}>Have a Coupon?</h3>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <input type="text" placeholder="e.g. APNA50" value={couponCode} onChange={e => setCouponCode(e.target.value)} style={{ padding: 10, flex: 1, border: '1px solid #ccc', borderRadius: 5 }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+              <input type="text" placeholder="e.g. APNA50" value={couponCode} onChange={e => setCouponCode(e.target.value)} style={{ padding: 10, width: '100%', border: '1px solid #ccc', borderRadius: 5 }} />
               <button type="button" className="btn" style={{ padding: 10 }} onClick={applyCoupon}>Apply</button>
             </div>
             {couponMsg && <p style={{ fontSize: '0.85rem', marginTop: 5, color: couponMsg.startsWith('✅') ? '#2ecc71' : '#e74c3c' }}>{couponMsg}</p>}

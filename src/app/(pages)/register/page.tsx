@@ -1,6 +1,6 @@
 'use client';
 export const dynamic = 'force-dynamic';
-import { useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Script from 'next/script';
@@ -53,7 +53,7 @@ function getStrength(p: string): { score: number; label: string; color: string }
 }
 
 /* ── Component ───────────────────────────────────────────────────────────── */
-export default function RegisterPage() {
+function RegisterContent() {
   const router     = useRouter();
   const params     = useSearchParams();
   const verifyMode = params.get('verify') === 'true';
@@ -351,5 +351,13 @@ export default function RegisterPage() {
         </div>
       </main>
     </>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '6rem 1rem', textAlign: 'center' }}>Loading...</div>}>
+      <RegisterContent />
+    </Suspense>
   );
 }

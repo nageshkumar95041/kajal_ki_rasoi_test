@@ -1,33 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Stripe from 'stripe';
 import { connectDB } from '@/lib/mongodb';
 import { MenuItem, TiffinItem, TempCart } from '@/lib/models';
 import { optionalAuth } from '@/lib/auth';
+import {
+  applyApna50Coupon,
+  normalizeCartItems,
+  normalizeCoordinate,
+  priceCartItems,
+  resolveSafeRedirectUrl,
+} from '@/lib/payment';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+// Lazy-loaded so jest.mock('stripe', ...) works correctly in tests
+function getStripe() {
+  const Stripe = require('stripe').default ?? require('stripe');
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+}
 
 export async function POST(req: NextRequest) {
   const user = optionalAuth(req);
   const { items, customerName, contact, phone, address, successUrl, cancelUrl, couponCode, deliveryFee, customerLat, customerLng } = await req.json();
-  if (!Array.isArray(items) || !address) return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
+  const normalizedAddress = typeof address === 'string' ? address.trim() : '';
+  const normalizedItems = normalizeCartItems(items);
+
+  if (!normalizedItems || !normalizedAddress) {
+    return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
+  }
+
   await connectDB();
-  const itemNames = items.map((i: { name: string }) => String(i.name));
-  const [dbItems, dbTiffin] = await Promise.all([MenuItem.find({ name: { $in: itemNames } }), TiffinItem.find({ name: { $in: itemNames } })]);
-  const priceMap: Record<string, number> = {};
-  [...dbItems, ...dbTiffin].forEach(i => { priceMap[i.name] = i.price; });
-  let subtotal = items.reduce((s: number, i: { name: string; quantity: number }) => s + ((priceMap[i.name] || 0) * (i.quantity || 1)), 0);
-  if (couponCode === 'APNA50' && subtotal >= 200) subtotal -= 50;
-  const finalTotal = subtotal + (deliveryFee || 0);
-  if (finalTotal <= 0) return NextResponse.json({ error: 'Empty cart.' }, { status: 400 });
-  const origin = req.headers.get('origin') || process.env.FRONTEND_URL || 'http://localhost:3000';
+  const itemNames = normalizedItems.map(item => item.name);
+  const [dbItems, dbTiffin] = await Promise.all([
+    MenuItem.find({ name: { $in: itemNames }, available: true }),
+    TiffinItem.find({ name: { $in: itemNames }, available: true }),
+  ]);
+  const pricedCart = priceCartItems(normalizedItems, [...dbItems, ...dbTiffin]);
+  if (!pricedCart || pricedCart.subtotal <= 0) {
+    return NextResponse.json({ error: 'Invalid or unavailable cart items.' }, { status: 400 });
+  }
+
+  const coupon = applyApna50Coupon(pricedCart.subtotal, couponCode);
+  const finalTotal = coupon.finalTotal;
+  const safeDeliveryFee = 0;
+  const stripe = getStripe();
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     line_items: [{ price_data: { currency: 'inr', product_data: { name: 'Kajal Ki Rasoi Order' }, unit_amount: Math.round(finalTotal * 100) }, quantity: 1 }],
     mode: 'payment',
-    success_url: successUrl?.startsWith('http') ? successUrl : `${origin}/my-orders?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: cancelUrl?.startsWith('http') ? cancelUrl : `${origin}/payment`,
-    customer_email: contact?.includes('@') ? contact : undefined,
+    success_url: resolveSafeRedirectUrl(req, successUrl, '/my-orders?session_id={CHECKOUT_SESSION_ID}'),
+    cancel_url: resolveSafeRedirectUrl(req, cancelUrl, '/payment'),
+    customer_email: typeof contact === 'string' && contact.includes('@') ? contact : undefined,
   });
-  await TempCart.create({ stripeSessionId: session.id, userId: user?.id || null, customerName: customerName || 'Guest', contact, phone, address: address.trim(), cart: { items, total: finalTotal }, deliveryFee: deliveryFee || 0, customerLat, customerLng });
+  await TempCart.create({
+    stripeSessionId: session.id,
+    userId: user?.id || null,
+    customerName: typeof customerName === 'string' && customerName.trim() ? customerName.trim() : 'Guest',
+    contact,
+    phone,
+    address: normalizedAddress,
+    cart: { items: pricedCart.items, total: finalTotal },
+    deliveryFee: safeDeliveryFee,
+    customerLat: normalizeCoordinate(customerLat),
+    customerLng: normalizeCoordinate(customerLng),
+  });
   return NextResponse.json({ id: session.id, url: session.url });
 }

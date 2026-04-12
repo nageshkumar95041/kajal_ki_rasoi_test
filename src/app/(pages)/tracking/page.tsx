@@ -1,6 +1,6 @@
 'use client';
 export const dynamic = 'force-dynamic';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { Suspense, useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 
@@ -103,7 +103,7 @@ function StaticMapPlaceholder({ status }: { status: string }) {
   );
 }
 
-export default function TrackingPage() {
+function TrackingContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
   const [data, setData] = useState<TrackData | null>(null);
@@ -313,5 +313,13 @@ export default function TrackingPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function TrackingPage() {
+  return (
+    <Suspense fallback={<div style={{ paddingTop: '6rem', textAlign: 'center' }}>Loading...</div>}>
+      <TrackingContent />
+    </Suspense>
   );
 }

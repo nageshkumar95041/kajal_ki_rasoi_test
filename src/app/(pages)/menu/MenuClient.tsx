@@ -124,6 +124,8 @@ export default function MenuClient() {
                     return (
                       <div key={item._id} className={`menu-card ${!isAvail ? 'item-unavailable' : ''}`} data-name={safeName} data-price={item.price}>
                         <div className="card-img-container">
+                          {/* Plain img is intentional because cards can use arbitrary remote image URLs from admin input. */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={imgSrc} alt={safeName} className="card-img" loading="lazy" />
                           {isRec  && isAvail && <span className="badge badge-recommended">🔥 Recommended</span>}
                           {isBest && isAvail && !isRec && <span className="badge badge-bestseller">⭐ Best Seller</span>}

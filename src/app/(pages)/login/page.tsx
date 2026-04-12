@@ -1,12 +1,12 @@
 'use client';
 export const dynamic = 'force-dynamic';
-import { useState, useEffect } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Script from 'next/script';
 import Navbar from '@/components/Navbar';
 
-export default function LoginPage() {
+function LoginContent() {
   const router     = useRouter();
   const searchParams = useSearchParams();
   const nextPath   = searchParams.get('next') || '/';
@@ -61,7 +61,7 @@ export default function LoginPage() {
     setLoading(false);
   }
 
-  function handleGoogleResponse(response: { credential: string }) {
+  const handleGoogleResponse = useCallback((response: { credential: string }) => {
     fetch('/api/google-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: response.credential }) })
       .then(r => r.json())
       .then(data => {
@@ -71,7 +71,7 @@ export default function LoginPage() {
           router.push(data.user.role === 'admin' ? '/admin' : data.user.role === 'agent' ? '/agent' : nextPath);
         }
       });
-  }
+  }, [nextPath, router]);
 
   useEffect(() => {
     const initGoogle = () => {
@@ -83,7 +83,7 @@ export default function LoginPage() {
     };
     if ((window as any).google) initGoogle();
     else window.addEventListener('google-loaded', initGoogle, { once: true });
-  }, []);
+  }, [handleGoogleResponse]);
 
   return (
     <>
@@ -156,5 +156,13 @@ export default function LoginPage() {
         </div>
       )}
     </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '6rem 1rem', textAlign: 'center' }}>Loading...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

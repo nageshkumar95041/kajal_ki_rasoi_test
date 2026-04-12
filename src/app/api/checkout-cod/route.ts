@@ -4,18 +4,28 @@ import { Order, User, MenuItem, TiffinItem, SiteSettings } from '@/lib/models';
 import { optionalAuth } from '@/lib/auth';
 import { emitOrderUpdate } from '@/lib/socket';
 import { createBorzoDelivery } from '@/lib/borzo';
+import {
+  applyApna50Coupon,
+  normalizeCartItems,
+  normalizeCoordinate,
+  priceCartItems,
+} from '@/lib/payment';
 
 export async function POST(req: NextRequest) {
   const user = optionalAuth(req);
   if (!user) return NextResponse.json({ error: 'Must be logged in for COD.' }, { status: 403 });
 
   const { items, customerName, contact, phone, address, couponCode, deliveryFee, customerLat, customerLng } = await req.json();
-  if (!Array.isArray(items) || !address || !customerName)
+  const normalizedAddress = typeof address === 'string' ? address.trim() : '';
+  const normalizedCustomerName = typeof customerName === 'string' ? customerName.trim() : '';
+  const normalizedItems = normalizeCartItems(items);
+
+  if (!normalizedItems || !normalizedAddress || !normalizedCustomerName)
     return NextResponse.json({ error: 'Missing details.' }, { status: 400 });
 
   await connectDB();
 
- const setting = await SiteSettings.findOne({ key: 'onlinePaymentEnabled' }).lean() as unknown as { value: any } | null;
+  const setting = await SiteSettings.findOne({ key: 'onlinePaymentEnabled' }).lean() as unknown as { value: any } | null;
   const val = setting?.value;
   const onlineEnabled = val === true || val === 'true' || val === 1 || val === '1';
 
@@ -27,26 +37,38 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const itemNames = items.map((i: { name: string }) => String(i.name));
+  const itemNames = normalizedItems.map(item => item.name);
   const [dbItems, dbTiffin] = await Promise.all([
     MenuItem.find({ name: { $in: itemNames } }),
     TiffinItem.find({ name: { $in: itemNames } }),
   ]);
 
-  const priceMap: Record<string, number> = {};
-  [...dbItems, ...dbTiffin].forEach(i => { priceMap[i.name] = i.price; });
+  // Prefer MenuItem prices — only use TiffinItem for names not found in MenuItem
+  const menuNames = new Set(dbItems.map((i: any) => i.name));
+  const tiffinOnly = dbTiffin.filter((i: any) => !menuNames.has(i.name));
+  const priceSources = [...dbItems, ...tiffinOnly];
 
-  let subtotal = items.reduce(
-    (s: number, i: { name: string; quantity: number }) => s + ((priceMap[i.name] || 0) * (i.quantity || 1)),
-    0
-  );
-  if (couponCode === 'APNA50' && subtotal >= 200) subtotal -= 50;
-  const total = subtotal + (deliveryFee || 0);
+  const pricedCart = priceCartItems(normalizedItems, priceSources);
+  if (!pricedCart || pricedCart.subtotal <= 0) {
+    return NextResponse.json({ error: 'Invalid or unavailable cart items.' }, { status: 400 });
+  }
+
+  const coupon = applyApna50Coupon(pricedCart.subtotal, couponCode);
+  const total = coupon.finalTotal;
+  const safeDeliveryFee = 0;
 
   const newOrder = await Order.create({
-    userId: user.id, customerName: customerName.trim(), contact, phone,
-    address: address.trim(), items, total, deliveryFee: deliveryFee || 0,
-    customerLat, customerLng, paymentMethod: 'COD',
+    userId: user.id,
+    customerName: normalizedCustomerName,
+    contact,
+    phone,
+    address: normalizedAddress,
+    items: pricedCart.items,
+    total,
+    deliveryFee: safeDeliveryFee,
+    customerLat: normalizeCoordinate(customerLat),
+    customerLng: normalizeCoordinate(customerLng),
+    paymentMethod: 'COD',
   });
 
   emitOrderUpdate({ type: 'NEW_ORDER' });

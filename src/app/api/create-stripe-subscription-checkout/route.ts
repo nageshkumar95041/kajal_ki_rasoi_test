@@ -1,28 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Stripe from 'stripe';
 import { connectDB } from '@/lib/mongodb';
-import { TempSubscription } from '@/lib/models';
-import { optionalAuth } from '@/lib/auth';
+import { Subscription, TempSubscription } from '@/lib/models';
+import { requireAuth } from '@/lib/auth';
+import { getSubscriptionQuote, parseSubscriptionStartDate, resolveSafeRedirectUrl } from '@/lib/payment';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+// Lazy-loaded so jest.mock('stripe', ...) works correctly in tests
+function getStripe() {
+  const Stripe = require('stripe').default ?? require('stripe');
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+}
 
 export async function POST(req: NextRequest) {
-  const user = optionalAuth(req);
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+
   const { plan, frequency, price, customerName, contact, address, startDate, persons, couponCode, successUrl, cancelUrl } = await req.json();
-  if (!plan || !customerName || !address || !startDate || !price) {
+  const normalizedCustomerName = typeof customerName === 'string' ? customerName.trim() : '';
+  const normalizedContact = typeof contact === 'string' ? contact.trim() : '';
+  const normalizedAddress = typeof address === 'string' ? address.trim() : '';
+  const subscriptionQuote = getSubscriptionQuote({ plan, frequency, persons, couponCode });
+  const parsedStartDate = parseSubscriptionStartDate(startDate);
+
+  if (!normalizedCustomerName || !normalizedContact || !normalizedAddress || !subscriptionQuote || !parsedStartDate) {
     return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
   }
-  const origin = req.headers.get('origin') || process.env.FRONTEND_URL || 'http://localhost:3000';
-  const freqText = frequency === 7 && plan.includes('Trial') ? '7-Day Trial' : `${frequency} Days/Week`;
+
+  await connectDB();
+  const existing = await Subscription.findOne({
+    userId: auth.user.id,
+    status: { $in: ['Pending', 'Active'] },
+  });
+  if (existing) {
+    return NextResponse.json(
+      { error: `You already have an active ${existing.plan} subscription.` },
+      { status: 409 }
+    );
+  }
+
+  const stripe = getStripe();
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
-    line_items: [{ price_data: { currency: 'inr', product_data: { name: `Subscription: ${plan} (${freqText})`, description: `For ${persons || 1} Person(s).` }, unit_amount: Math.round(price * 100) }, quantity: 1 }],
+    line_items: [{
+      price_data: {
+        currency: 'inr',
+        product_data: {
+          name: `Subscription: ${subscriptionQuote.plan} (${subscriptionQuote.frequencyLabel})`,
+          description: `For ${subscriptionQuote.persons} Person(s).`,
+        },
+        unit_amount: Math.round(subscriptionQuote.finalPrice * 100),
+      },
+      quantity: 1,
+    }],
     mode: 'payment',
-    success_url: successUrl?.startsWith('http') ? successUrl : `${origin}/subscription?sub_success=true`,
-    cancel_url: cancelUrl?.startsWith('http') ? cancelUrl : `${origin}/subscription`,
-    customer_email: contact?.includes('@') ? contact : undefined,
+    success_url: resolveSafeRedirectUrl(req, successUrl, '/subscription?sub_success=true'),
+    cancel_url: resolveSafeRedirectUrl(req, cancelUrl, '/subscription'),
+    customer_email: normalizedContact.includes('@') ? normalizedContact : undefined,
   });
-  await connectDB();
-  await TempSubscription.create({ stripeSessionId: session.id, userId: user?.id || null, customerName, contact, address, plan, frequency, persons, couponCode, price, startDate: new Date(startDate) });
+  await TempSubscription.create({
+    stripeSessionId: session.id,
+    userId: auth.user.id,
+    customerName: normalizedCustomerName,
+    contact: normalizedContact,
+    address: normalizedAddress,
+    plan: subscriptionQuote.plan,
+    frequency: subscriptionQuote.frequency,
+    persons: subscriptionQuote.persons,
+    couponCode: subscriptionQuote.appliedCouponCode,
+    price: subscriptionQuote.finalPrice,
+    startDate: parsedStartDate,
+  });
   return NextResponse.json({ id: session.id, url: session.url });
 }

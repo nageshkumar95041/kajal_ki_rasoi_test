@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
@@ -9,7 +9,7 @@ import { getAuthToken, getLoggedInUser, formatDate } from '@/lib/utils';
 
 interface Order { _id: string; status: string; items: { name: string; quantity: number }[]; total: number; timestamp: string; paymentMethod: string; rating?: number; deliveryOtp?: string; inHouseDelivery?: boolean; borzoTrackingUrl?: string; }
 
-export default function MyOrdersPage() {
+function MyOrdersContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [token, setToken] = useState<string | null>(null);
@@ -167,5 +167,13 @@ export default function MyOrdersPage() {
       </section>
       <footer><p>&copy; {new Date().getFullYear()} Kajal Ki Rasoi. All Rights Reserved.</p></footer>
     </>
+  );
+}
+
+export default function MyOrdersPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '6rem 1rem', textAlign: 'center' }}>Loading...</div>}>
+      <MyOrdersContent />
+    </Suspense>
   );
 }

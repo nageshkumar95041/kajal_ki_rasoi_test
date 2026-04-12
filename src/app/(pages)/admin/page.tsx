@@ -79,7 +79,11 @@ function MenuModal({ item, onClose, onSave }: { item?: MenuItem | null; onClose:
             <input type="text" value={form.imageUrl} onChange={e=>{setForm(f=>({...f,imageUrl:e.target.value}));setPreview(e.target.value||getDefaultImage(form.name));}} placeholder="Paste link..." style={{...s,marginBottom:6}}/>
             <div style={{ textAlign:'center',marginBottom:6,fontSize:'0.85rem',color:'var(--admin-text-muted)' }}>— OR upload image —</div>
             <input type="file" accept="image/*" onChange={handleImageUpload} style={s}/>
-            <div style={{ textAlign:'center',marginTop:10 }}><img src={preview} alt="Preview" style={{ maxWidth:'100%',height:120,borderRadius:8,objectFit:'cover',border:'1px solid var(--admin-border)' }} onError={e=>{(e.target as HTMLImageElement).src='https://via.placeholder.com/150?text=Error';}}/></div>
+            <div style={{ textAlign:'center',marginTop:10 }}>
+              {/* Plain img is intentional here because preview can be a local data URL or arbitrary admin-supplied URL. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={preview} alt="Preview" style={{ maxWidth:'100%',height:120,borderRadius:8,objectFit:'cover',border:'1px solid var(--admin-border)' }} onError={e=>{(e.target as HTMLImageElement).src='https://via.placeholder.com/150?text=Error';}}/>
+            </div>
           </div>
           <div><label style={{ fontWeight:'bold',display:'block',marginBottom:'0.3rem',color:'var(--admin-text-main)' }}>Category</label><select value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} style={s}>{cats.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
           <label style={{ display:'flex',alignItems:'center',gap:8,cursor:'pointer',color:'var(--admin-text-main)' }}><input type="checkbox" checked={form.available} onChange={e=>setForm(f=>({...f,available:e.target.checked}))}/> Available (In Stock)</label>
@@ -592,7 +596,11 @@ export default function AdminPage() {
                     <thead><tr style={{background:'var(--admin-sidebar)',color:'var(--admin-sidebar-text)',textAlign:'left'}}>{['Image','Name','Price','Category','Status','Actions'].map(h=><th key={h} style={thStyle}>{h}</th>)}</tr></thead>
                     <tbody>{menuItems.map(item=>(
                       <tr key={item._id} style={{borderBottom:'1px solid var(--admin-border)'}}>
-                        <td style={tdStyle}><img src={item.imageUrl?.trim()?escapeHTML(item.imageUrl):getDefaultImage(item.name)} alt={item.name} style={{width:50,height:50,objectFit:'cover',borderRadius:5}} onError={e=>{(e.target as HTMLImageElement).src='https://via.placeholder.com/50?text=Err';}}/></td>
+                        <td style={tdStyle}>
+                          {/* Plain img is intentional because menu items may reference arbitrary remote URLs outside Next image config. */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={item.imageUrl?.trim()?escapeHTML(item.imageUrl):getDefaultImage(item.name)} alt={item.name} style={{width:50,height:50,objectFit:'cover',borderRadius:5}} onError={e=>{(e.target as HTMLImageElement).src='https://via.placeholder.com/50?text=Err';}}/>
+                        </td>
                         <td style={tdStyle}>{escapeHTML(item.name)}</td>
                         <td style={tdStyle}>₹{item.price}</td>
                         <td style={{...tdStyle,fontSize:'0.85rem'}}>{escapeHTML(item.category)}</td>

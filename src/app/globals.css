@@ -1432,11 +1432,10 @@ footer a:hover {
         .hero-cta .btn:first-child,
         .hero-cta .btn-secondary {
             flex: 1;
-        min-width: 0;
+        min-width: 120px;
             text-align: center;
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+  
         }
         .hero-cta .btn-tiffin {
             width: 100%;
@@ -3840,6 +3839,7 @@ html, body {
 @media (max-width: 768px) {
   body {
     background-color: #0f0700;
+    color: #fff;
   }
   /* Inner page sections restore cream background */
   .hero,
@@ -3852,6 +3852,8 @@ html, body {
   .about-section,
   section {
     background-color: #faf8f4;
+    color: #fff;
+    
   }
   /* Add padding at the bottom so sticky cart doesn't cover content */
   body {

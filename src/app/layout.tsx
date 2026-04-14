@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     template: '%s | Kajal Ki Rasoi',
   },
   description:
-    'Order fresh homemade food from Kajal Ki Rasoi. Daily tiffin subscriptions and home-cooked meals delivered across Noida Sector 130, Sector 135, Wazidpur & Ghaziabad NCR.',
+    'Order fresh homemade food from Kajal Ki Rasoi. Daily tiffin subscriptions and home-cooked meals delivered across Noida Sector 130, Sector 135, Wazidpur.',
   keywords: [
     'tiffin service Noida',
     'homemade food delivery Noida',

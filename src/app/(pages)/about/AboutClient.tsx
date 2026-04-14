@@ -28,7 +28,7 @@ export default function AboutPage() {
           <h1 style={{ fontSize: '2.4rem', color: '#2c3e50', marginBottom: '1.25rem', textAlign: 'center' }}>
             Our Story: From Our Home to Yours ❤️
           </h1>
-          <p style={{ color: '#555', fontSize: '1.1rem', lineHeight: 1.8, textAlign: 'center', maxWidth: 720, margin: '0 auto 2.5rem' }}>
+          <p style={{ color: '#555', fontSize: '1.1rem', lineHeight: 1.8, textAlign: 'left', maxWidth: 720, margin: '0 auto 2.5rem' }}>
             Living away from home often means missing out on the warmth of <em>maa ke haath ka khana</em>.
             We aren&apos;t a commercial restaurant; we are a real home kitchen. Every meal is prepared with
             fresh, locally sourced vegetables, strict hygiene, and a mother&apos;s touch. Our promise is simple:

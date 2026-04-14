@@ -122,7 +122,7 @@ export default function HomeClient() {
       </header>
 
       {/* ── QUICK LINKS STRIP ─────────────────────────────────── */}
-      <section style={{ background:'#fffaf5', padding:'2.5rem 1rem', textAlign:'center' }}>
+      <section style={{ background:'#fffaf5', padding:'2.5rem 0.2rem', textAlign:'center' }}>
         <h2 style={{ fontSize:'1.6rem', color:'#2c3e50', marginBottom:'1.5rem' }}>
           Explore Kajal Ki Rasoi
         </h2>

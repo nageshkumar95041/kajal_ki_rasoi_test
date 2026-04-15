@@ -4,7 +4,8 @@ import { createPortal } from 'react-dom';
 import { useEffect, useState } from 'react';
 import { getAuthToken, isTokenExpired, getLoggedInUser } from '@/lib/utils';
 
-const FREE_DELIVERY_THRESHOLD = 199;
+// Free delivery as of now
+const FREE_DELIVERY_THRESHOLD = 40;
 
 interface Props {
   cartCount: number;
@@ -103,7 +104,7 @@ export default function StickyCart({ cartCount, cartTotal }: Props) {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
         {remaining > 0 && (
           <span style={{ fontSize: '0.75rem', color: '#aaa' }}>
-            Add ₹{remaining} more for free delivery.
+            free delivery 🎉
           </span>
         )}
         <Link

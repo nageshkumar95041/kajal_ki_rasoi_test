@@ -85,6 +85,7 @@ export default function Navbar({ scrolled: defaultScrolled = false }: { scrolled
   }
 
   const isHome  = pathname === '/';
+  const hideCart = pathname === '/restaurant/dashboard' || pathname === '/restaurant/register';
   const initial = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
   const restaurantRegisterHref = user ? '/restaurant/register' : '/login?next=/restaurant/register';
   const isRestaurantOwner = user?.role === 'user' && !!user?.hasRestaurant;
@@ -144,8 +145,8 @@ export default function Navbar({ scrolled: defaultScrolled = false }: { scrolled
         {/* Notification Bell — only when logged in */}
         {mounted && user && <NotificationBell />}
 
-        {/* Cart — only when logged in */}
-        {mounted && user && (
+        {/* Cart — only when logged in and not on restaurant pages */}
+        {mounted && user && !hideCart && (
           <Link href="/cart" className="nav-cart-icon">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />

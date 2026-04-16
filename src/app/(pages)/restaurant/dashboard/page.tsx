@@ -131,10 +131,10 @@ export default function RestaurantDashboard() {
 
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if ((tab === 'orders' || tab === 'delivery' || tab === 'menu') && tab !== activeTab) {
+    if (tab === 'orders' || tab === 'delivery' || tab === 'menu') {
       setActiveTab(tab);
     }
-  }, [searchParams, activeTab]);
+  }, [searchParams]);
 
   const updateOrdersState = (updatedOrder: Order) => {
     setOrders((current) => current.map((order) => (order._id === updatedOrder._id ? { ...order, ...updatedOrder } : order)));

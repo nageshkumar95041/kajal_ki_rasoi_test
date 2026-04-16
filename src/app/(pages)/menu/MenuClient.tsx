@@ -14,6 +14,7 @@ import {
   CartItem,
   getCartRestaurantId,
 } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 
 interface MenuItem {
   _id: string;
@@ -33,6 +34,8 @@ interface Restaurant {
 }
 
 export default function MenuClient() {
+  const { user } = useAuth();
+  const isRestaurantOwner = user?.role === 'user' && !!user?.hasRestaurant;
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [cart, setCart] = useState<CartItem[]>(getCart());
@@ -164,42 +167,44 @@ export default function MenuClient() {
 
       <main style={{ paddingTop: '80px', minHeight: '100vh' }}>
         <section className="menu-section">
-          <div className="menu-page-hero">
-            <div className="menu-page-hero-copy">
-              <p className="menu-page-eyebrow">Fresh Menu</p>
-              <h1 className="section-title menu-page-title">Our Menu</h1>
-              <p className="menu-page-subtitle">
-                Fresh, homemade, zero preservatives - cooked daily with love.
-              </p>
-              <p className="menu-page-note">
-                Browse all available dishes from our partner kitchens without selecting a restaurant first.
-              </p>
+          {isRestaurantOwner && (
+            <div className="menu-page-hero">
+              <div className="menu-page-hero-copy">
+                <p className="menu-page-eyebrow">Fresh Menu</p>
+                <h1 className="section-title menu-page-title">Our Menu</h1>
+                <p className="menu-page-subtitle">
+                  Fresh, homemade, zero preservatives - cooked daily with love.
+                </p>
+                <p className="menu-page-note">
+                  Browse all available dishes from our partner kitchens without selecting a restaurant first.
+                </p>
 
-              <div className="menu-page-hero-tags">
-                <span className="menu-page-tag">Homemade daily</span>
-                <span className="menu-page-tag">Fresh partner kitchens</span>
-                <span className="menu-page-tag">Curated by Kajal Ki Rasoi</span>
+                <div className="menu-page-hero-tags">
+                  <span className="menu-page-tag">Homemade daily</span>
+                  <span className="menu-page-tag">Fresh partner kitchens</span>
+                  <span className="menu-page-tag">Curated by Kajal Ki Rasoi</span>
+                </div>
+              </div>
+
+              <div className="menu-page-hero-stats">
+                <div className="menu-page-stat-card">
+                  <span className="menu-page-stat-label">Available Dishes</span>
+                  <strong>{menuItems.length}</strong>
+                  <p>Currently ready to order across all active kitchens.</p>
+                </div>
+                <div className="menu-page-stat-card">
+                  <span className="menu-page-stat-label">Partner Kitchens</span>
+                  <strong>{restaurants.length}</strong>
+                  <p>Serving fresh dishes through the Kajal Ki Rasoi menu.</p>
+                </div>
+                <div className="menu-page-stat-card">
+                  <span className="menu-page-stat-label">Live Categories</span>
+                  <strong>{visibleCategoryCount}</strong>
+                  <p>Organized sections to help customers discover quickly.</p>
+                </div>
               </div>
             </div>
-
-            <div className="menu-page-hero-stats">
-              <div className="menu-page-stat-card">
-                <span className="menu-page-stat-label">Available Dishes</span>
-                <strong>{menuItems.length}</strong>
-                <p>Currently ready to order across all active kitchens.</p>
-              </div>
-              <div className="menu-page-stat-card">
-                <span className="menu-page-stat-label">Partner Kitchens</span>
-                <strong>{restaurants.length}</strong>
-                <p>Serving fresh dishes through the Kajal Ki Rasoi menu.</p>
-              </div>
-              <div className="menu-page-stat-card">
-                <span className="menu-page-stat-label">Live Categories</span>
-                <strong>{visibleCategoryCount}</strong>
-                <p>Organized sections to help customers discover quickly.</p>
-              </div>
-            </div>
-          </div>
+          )}
 
           {cartRestaurantId && (
             <p className="menu-page-cart-note">

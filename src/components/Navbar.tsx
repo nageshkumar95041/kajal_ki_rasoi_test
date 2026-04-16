@@ -2,9 +2,10 @@
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { getCartCount, getLoggedInUser, getAuthToken, isTokenExpired } from '@/lib/utils';
+import { getCartCount, getLoggedInUser, getAuthToken, isTokenExpired, type LoggedInUser } from '@/lib/utils';
+import NotificationBell from './NotificationBell';
 
-interface User { name: string; contact: string; role: string; }
+type User = LoggedInUser;
 
 export default function Navbar({ scrolled: defaultScrolled = false }: { scrolled?: boolean }) {
   const pathname  = usePathname();
@@ -85,6 +86,14 @@ export default function Navbar({ scrolled: defaultScrolled = false }: { scrolled
 
   const isHome  = pathname === '/';
   const initial = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
+  const restaurantRegisterHref = user ? '/restaurant/register' : '/login?next=/restaurant/register';
+  const isRestaurantOwner = user?.role === 'user' && !!user?.hasRestaurant;
+  const showRestaurantRegisterNav =
+    !user || (user.role === 'user' && !user.hasRestaurant);
+  const menuHref =
+    isRestaurantOwner
+      ? '/restaurant/dashboard?tab=menu'
+      : '/menu';
 
   function scrollTo(id: string) {
     setMenuOpen(false);
@@ -113,11 +122,18 @@ export default function Navbar({ scrolled: defaultScrolled = false }: { scrolled
 
       {/* Nav links */}
       <ul className={`nav-links ${menuOpen ? 'active' : ''}`} data-authed={user ? 'true' : 'false'}>
-        <li><Link href="/" onClick={() => setMenuOpen(false)}>Home</Link></li>
-        <li><Link href="/menu" onClick={() => setMenuOpen(false)}>Menu</Link></li>
-        <li><Link href="/subscription" onClick={() => setMenuOpen(false)}>Tiffin</Link></li>
+        {!isRestaurantOwner && (
+          <li><Link href="/" onClick={() => setMenuOpen(false)}>Home</Link></li>
+        )}
+        <li><Link href={menuHref} onClick={() => setMenuOpen(false)}>Menu</Link></li>
+        {!isRestaurantOwner && (
+          <li><Link href="/subscription" onClick={() => setMenuOpen(false)}>Tiffin</Link></li>
+        )}
         <li><Link href="/about" onClick={() => setMenuOpen(false)}>About</Link></li>
         <li><Link href="/contact" onClick={() => setMenuOpen(false)}>Contact</Link></li>
+        {showRestaurantRegisterNav && (
+          <li><Link href={restaurantRegisterHref} onClick={() => setMenuOpen(false)}>Register Restaurant</Link></li>
+        )}
         <li className="nav-login-item">
           <Link href="/login" onClick={() => setMenuOpen(false)}>Login</Link>
         </li>
@@ -125,6 +141,9 @@ export default function Navbar({ scrolled: defaultScrolled = false }: { scrolled
 
       {/* Right side */}
       <div className="nav-right">
+        {/* Notification Bell — only when logged in */}
+        {mounted && user && <NotificationBell />}
+
         {/* Cart — only when logged in */}
         {mounted && user && (
           <Link href="/cart" className="nav-cart-icon">
@@ -151,8 +170,8 @@ export default function Navbar({ scrolled: defaultScrolled = false }: { scrolled
               <div className="nav-dropdown">
                 <div className="nav-dropdown-header">{user.name}</div>
                 {[
-                  { label: 'My Orders', href: '/my-orders' },
-                  { label: 'Profile',   href: '/profile'   },
+                  ...(user.hasRestaurant ? [{ label: 'Restaurant Dashboard', href: '/restaurant/dashboard' }] : [{ label: 'My Orders', href: '/my-orders' }]),
+                  { label: 'Profile', href: '/profile' },
                   ...(user.role === 'admin' ? [{ label: 'Admin Dashboard', href: '/admin' }] : []),
                 ].map(item => (
                   <Link key={item.href} href={item.href} className="nav-dropdown-item" onClick={() => setDropOpen(false)}>

@@ -23,6 +23,17 @@ function LoginContent() {
   const [forgotMsg, setForgotMsg]     = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
 
+  const getPostLoginPath = useCallback(
+    (user: { role?: string; hasRestaurant?: boolean }) => {
+      if (user.role === 'admin') return '/admin';
+      if (user.role === 'agent') return '/agent';
+      if (nextPath && nextPath !== '/') return nextPath;
+      if (user.hasRestaurant) return '/restaurant/dashboard';
+      return '/';
+    },
+    [nextPath]
+  );
+
   async function handleForgot(e: React.FormEvent) {
     e.preventDefault();
     if (!forgotEmail.includes('@')) { setForgotMsg('Please enter a valid email.'); return; }
@@ -48,7 +59,7 @@ function LoginContent() {
       if (data.success) {
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('loggedInUser', JSON.stringify(data.user));
-        router.push(data.user.role === 'admin' ? '/admin' : data.user.role === 'agent' ? '/agent' : nextPath);
+        router.push(getPostLoginPath(data.user));
       } else if (data.requiresVerification) {
         localStorage.setItem('pendingContact', contact);
         router.push('/register?verify=true');
@@ -68,10 +79,10 @@ function LoginContent() {
         if (data.success) {
           localStorage.setItem('authToken', data.token);
           localStorage.setItem('loggedInUser', JSON.stringify(data.user));
-          router.push(data.user.role === 'admin' ? '/admin' : data.user.role === 'agent' ? '/agent' : nextPath);
+          router.push(getPostLoginPath(data.user));
         }
       });
-  }, [nextPath, router]);
+  }, [getPostLoginPath, router]);
 
   useEffect(() => {
     const initGoogle = () => {

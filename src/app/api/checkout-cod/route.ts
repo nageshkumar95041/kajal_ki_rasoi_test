@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
-import { Order, User, MenuItem, TiffinItem, SiteSettings } from '@/lib/models';
+import { Order, User, MenuItem, TiffinItem, SiteSettings, Notification, Restaurant } from '@/lib/models';
 import { optionalAuth } from '@/lib/auth';
+import { rateLimit } from '@/lib/rateLimit';
+import { validateEmail, validatePhone, validateString } from '@/lib/validation';
 import { emitOrderUpdate } from '@/lib/socket';
 import { createBorzoDelivery } from '@/lib/borzo';
 import {
@@ -12,12 +14,33 @@ import {
 } from '@/lib/payment';
 
 export async function POST(req: NextRequest) {
+  // Apply rate limiting for checkout (5 per minute)
+  const rateLimitError = rateLimit({ maxRequests: 5, windowMs: 60000 })(req);
+  if (rateLimitError) {
+    return rateLimitError;
+  }
+
   const user = optionalAuth(req);
   if (!user) return NextResponse.json({ error: 'Must be logged in for COD.' }, { status: 403 });
 
-  const { items, customerName, contact, phone, address, couponCode, deliveryFee, customerLat, customerLng } = await req.json();
+  const { items, customerName, contact, phone, address, couponCode, deliveryFee, customerLat, customerLng, restaurantId } = await req.json();
   const normalizedAddress = typeof address === 'string' ? address.trim() : '';
   const normalizedCustomerName = typeof customerName === 'string' ? customerName.trim() : '';
+  
+  // Validate inputs
+  if (contact && !validateEmail(contact).valid) {
+    return NextResponse.json({ error: 'Invalid email address.' }, { status: 400 });
+  }
+  if (phone && !validatePhone(phone).valid) {
+    return NextResponse.json({ error: 'Invalid phone number.' }, { status: 400 });
+  }
+  if (!validateString(normalizedAddress, 5, 250).valid) {
+    return NextResponse.json({ error: 'Address must be between 5 and 250 characters.' }, { status: 400 });
+  }
+  if (!validateString(normalizedCustomerName, 2, 100).valid) {
+    return NextResponse.json({ error: 'Customer name must be between 2 and 100 characters.' }, { status: 400 });
+  }
+
   const normalizedItems = normalizeCartItems(items);
 
   if (!normalizedItems || !normalizedAddress || !normalizedCustomerName)
@@ -59,6 +82,7 @@ export async function POST(req: NextRequest) {
 
   const newOrder = await Order.create({
     userId: user.id,
+    restaurantId: restaurantId || null,
     customerName: normalizedCustomerName,
     contact,
     phone,
@@ -70,6 +94,31 @@ export async function POST(req: NextRequest) {
     customerLng: normalizeCoordinate(customerLng),
     paymentMethod: 'COD',
   });
+
+  // Create notification for customer
+  await Notification.create({
+    userId: user.id,
+    type: 'order_placed',
+    title: 'Order Placed',
+    message: `Your order #${String(newOrder._id).slice(-5)} of ₹${total} has been placed successfully.`,
+    orderId: newOrder._id,
+    restaurantId: restaurantId || undefined,
+  });
+
+  // Create notification for restaurant owner
+  if (restaurantId) {
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (restaurant) {
+      await Notification.create({
+        userId: restaurant.ownerId,
+        type: 'new_order',
+        title: 'New Order Received',
+        message: `New order #${String(newOrder._id).slice(-5)} from ${normalizedCustomerName} for ₹${total}`,
+        orderId: newOrder._id,
+        restaurantId: restaurantId,
+      });
+    }
+  }
 
   emitOrderUpdate({ type: 'NEW_ORDER' });
   await createBorzoDelivery(newOrder);

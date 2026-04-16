@@ -87,7 +87,7 @@ describe('GET /api/menu (public)', () => {
       MenuItem: { find: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue(mockMenu) }) },
     }));
     const { GET } = await import('@/app/api/menu/route');
-    const res = await GET();
+    const res = await GET(new NextRequest(URL));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveLength(1);

@@ -66,7 +66,7 @@ describe('GET /api/menu', () => {
       MenuItem: { find: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue(mockItems) }) },
     }));
     const { GET } = await import('@/app/api/menu/route');
-    const res = await GET();
+    const res = await GET(new NextRequest(URL));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(Array.isArray(body)).toBe(true);
@@ -79,8 +79,8 @@ describe('GET /api/menu', () => {
     const findMock = jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) });
     jest.mock('@/lib/models', () => ({ MenuItem: { find: findMock } }));
     const { GET } = await import('@/app/api/menu/route');
-    await GET();
-    await GET();
+    await GET(new NextRequest(URL));
+    await GET(new NextRequest(URL));
     // DB should only be queried once — second call uses cache
     expect(findMock).toHaveBeenCalledTimes(1);
   });

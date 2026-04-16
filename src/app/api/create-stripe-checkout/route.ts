@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import { MenuItem, TiffinItem, TempCart } from '@/lib/models';
 import { optionalAuth } from '@/lib/auth';
+import { rateLimit } from '@/lib/rateLimit';
+import { validateEmail, validatePhone, validateString } from '@/lib/validation';
 import {
   applyApna50Coupon,
   normalizeCartItems,
@@ -17,9 +19,30 @@ function getStripe() {
 }
 
 export async function POST(req: NextRequest) {
+  // Apply rate limiting for checkout (5 per minute)
+  const rateLimitError = rateLimit({ maxRequests: 5, windowMs: 60000 })(req);
+  if (rateLimitError) {
+    return rateLimitError;
+  }
+
   const user = optionalAuth(req);
-  const { items, customerName, contact, phone, address, successUrl, cancelUrl, couponCode, deliveryFee, customerLat, customerLng } = await req.json();
+  const { items, customerName, contact, phone, address, successUrl, cancelUrl, couponCode, deliveryFee, customerLat, customerLng, restaurantId } = await req.json();
   const normalizedAddress = typeof address === 'string' ? address.trim() : '';
+  
+  // Validate inputs
+  if (contact && !validateEmail(contact).valid) {
+    return NextResponse.json({ error: 'Invalid email address.' }, { status: 400 });
+  }
+  if (phone && !validatePhone(phone).valid) {
+    return NextResponse.json({ error: 'Invalid phone number.' }, { status: 400 });
+  }
+  if (!validateString(normalizedAddress, 5, 250).valid) {
+    return NextResponse.json({ error: 'Address must be between 5 and 250 characters.' }, { status: 400 });
+  }
+  if (customerName && !validateString(customerName, 2, 100).valid) {
+    return NextResponse.json({ error: 'Customer name must be between 2 and 100 characters.' }, { status: 400 });
+  }
+
   const normalizedItems = normalizeCartItems(items);
 
   if (!normalizedItems || !normalizedAddress) {
@@ -52,6 +75,7 @@ export async function POST(req: NextRequest) {
   await TempCart.create({
     stripeSessionId: session.id,
     userId: user?.id || null,
+    restaurantId: restaurantId || null,
     customerName: typeof customerName === 'string' && customerName.trim() ? customerName.trim() : 'Guest',
     contact,
     phone,

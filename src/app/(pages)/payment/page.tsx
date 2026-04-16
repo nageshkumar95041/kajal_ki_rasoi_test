@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-import { getCart, getAuthToken, getLoggedInUser, CartItem } from '@/lib/utils';
+import { getCart, getAuthToken, getLoggedInUser, CartItem, getCartRestaurantId } from '@/lib/utils';
 import { type SavedAddress, loadAddresses, saveAddresses, loadPhone, savePhone } from '@/lib/address';
 
 declare global {
@@ -80,6 +80,8 @@ export default function PaymentPage() {
   const [showSavePrompt, setShowSavePrompt]       = useState(false);
   const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(false);
   const [mounted, setMounted]                     = useState(false);
+  const [restaurants, setRestaurants]             = useState<any[]>([]);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>('');
   // true when user has saved phone + address — show compact summary, hide full form
   const [quickCheckout, setQuickCheckout]         = useState(false);
 
@@ -93,6 +95,8 @@ export default function PaymentPage() {
     const c = getCart();
     if (!c.length) { router.replace('/cart'); return; }
     setCart(c);
+    const restaurantId = getCartRestaurantId();
+    if (restaurantId) setSelectedRestaurantId(restaurantId);
 
     fetch('/api/config/payment-settings')
       .then(r => r.json())
@@ -141,6 +145,12 @@ export default function PaymentPage() {
       sessionTok.current  = new window.google.maps.places.AutocompleteSessionToken();
       setMapsReady(true);
     });
+
+    // Fetch restaurants
+    fetch('/api/restaurants')
+      .then(r => r.json())
+      .then(setRestaurants)
+      .catch(console.error);
   }, []); // eslint-disable-line
 
   useEffect(() => {
@@ -298,7 +308,7 @@ export default function PaymentPage() {
     }
 
     setLoading(true);
-    const payload = { items: cart, customerName: name, contact, phone: phone.trim(), address, couponCode: appliedCoupon, deliveryFee, customerLat, customerLng };
+    const payload = { items: cart, customerName: name, contact, phone: phone.trim(), address, couponCode: appliedCoupon, deliveryFee, customerLat, customerLng, restaurantId: selectedRestaurantId || null };
 
     if (payMethod === 'cod') {
       const res  = await fetch('/api/checkout-cod', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' }, body: JSON.stringify(payload) });
@@ -353,6 +363,24 @@ export default function PaymentPage() {
           </div>
 
           <form className="payment-form" onSubmit={handleSubmit}>
+
+            {/* Restaurant Selection */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label htmlFor="restaurant" style={{ display: 'block', fontSize: '1rem', color: '#2c3e50', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                Select Restaurant (Optional)
+              </label>
+              <select
+                id="restaurant"
+                value={selectedRestaurantId}
+                onChange={(e) => setSelectedRestaurantId(e.target.value)}
+                style={{ ...inp, marginBottom: 0 }}
+              >
+                <option value="">Choose a restaurant...</option>
+                {restaurants.map((r) => (
+                  <option key={r._id} value={r._id}>{r.name} - {r.address}</option>
+                ))}
+              </select>
+            </div>
 
             {/* ── QUICK CHECKOUT MODE — phone + address already saved ── */}
             {quickCheckout && isLoggedIn ? (

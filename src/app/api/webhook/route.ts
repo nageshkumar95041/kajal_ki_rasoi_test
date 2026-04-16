@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { connectDB } from '@/lib/mongodb';
-import { TempCart, TempSubscription, Order, Subscription } from '@/lib/models';
+import { TempCart, TempSubscription, Order, Subscription, Notification } from '@/lib/models';
 import { sendMail } from '@/lib/email';
 import { emitOrderUpdate } from '@/lib/socket';
 import { createBorzoDelivery } from '@/lib/borzo';
@@ -29,7 +29,8 @@ export async function POST(req: NextRequest) {
     const tempCart = await TempCart.findOneAndDelete({ stripeSessionId: session.id });
     if (tempCart) {
       const order = await Order.create({
-        userId: tempCart.userId, customerName: tempCart.customerName,
+        userId: tempCart.userId, restaurantId: tempCart.restaurantId,
+        customerName: tempCart.customerName,
         contact: tempCart.contact, phone: tempCart.phone,
         address: tempCart.address, items: tempCart.cart.items,
         total: tempCart.cart.total, deliveryFee: tempCart.deliveryFee,
@@ -39,6 +40,31 @@ export async function POST(req: NextRequest) {
       if (tempCart.contact?.includes('@')) {
         const html = `<h1>Thank you, ${order.customerName}!</h1><p>Order confirmed. Total: ₹${order.total}</p>`;
         sendMail(tempCart.contact, `Order Confirmation #${String(order._id).slice(-5)}`, html).catch(console.error);
+      }
+      // Create notification for customer
+      if (tempCart.userId) {
+        await Notification.create({
+          userId: tempCart.userId,
+          type: 'order_placed',
+          title: 'Order Placed',
+          message: `Your order #${String(order._id).slice(-5)} of ₹${order.total} has been placed successfully.`,
+          orderId: order._id,
+          restaurantId: order.restaurantId,
+        });
+      }
+      // Create notification for restaurant owner
+      if (order.restaurantId) {
+        const restaurant = await require('@/lib/models').Restaurant.findById(order.restaurantId);
+        if (restaurant) {
+          await Notification.create({
+            userId: restaurant.ownerId,
+            type: 'new_order',
+            title: 'New Order Received',
+            message: `New order #${String(order._id).slice(-5)} from ${order.customerName} for ₹${order.total}`,
+            orderId: order._id,
+            restaurantId: order.restaurantId,
+          });
+        }
       }
       emitOrderUpdate({ type: 'NEW_ORDER' });
       await createBorzoDelivery(order);

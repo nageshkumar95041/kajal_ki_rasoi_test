@@ -3,33 +3,39 @@ import { connectDB } from '@/lib/mongodb';
 import { MenuItem } from '@/lib/models';
 import { requireAdmin } from '@/lib/auth';
 
-let menuCache: { data: unknown[] | null; lastFetch: number } = { data: null, lastFetch: 0 };
+let menuCache: Record<string, { data: unknown[] | null; lastFetch: number }> = {};
 const CACHE_TTL = 5 * 60 * 1000;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   await connectDB();
+  const { searchParams } = new URL(req.url);
+  const restaurantId = searchParams.get('restaurantId');
   const now = Date.now();
-  if (menuCache.data && now - menuCache.lastFetch < CACHE_TTL) {
-    return NextResponse.json(menuCache.data);
+  const cacheKey = restaurantId || 'all';
+  if (!menuCache[cacheKey] || now - menuCache[cacheKey].lastFetch > CACHE_TTL) {
+    const query = restaurantId ? { restaurantId, available: true } : { available: true };
+    const menu = await MenuItem.find(query).lean();
+    menuCache[cacheKey] = { data: menu, lastFetch: now };
   }
-  const menu = await MenuItem.find().lean();
-  menuCache = { data: menu, lastFetch: now };
-  return NextResponse.json(menu);
+  return NextResponse.json(menuCache[cacheKey].data);
 }
 
 export async function POST(req: NextRequest) {
   const auth = requireAdmin(req);
   if (auth instanceof NextResponse) return auth;
   await connectDB();
-  const { name, price, description, category, imageUrl, available } = await req.json();
-  if (!name || typeof price !== 'number') {
-    return NextResponse.json({ success: false, message: 'A valid name and price are required.' }, { status: 400 });
+  const { restaurantId, name, price, description, category, imageUrl, available } = await req.json();
+  if (!restaurantId || !name || typeof price !== 'number') {
+    return NextResponse.json({ success: false, message: 'Restaurant ID, valid name and price are required.' }, { status: 400 });
   }
   try {
-    const item = await MenuItem.create({ name, price, description, category, imageUrl, available });
-    menuCache.data = null;
+    const item = await MenuItem.create({ restaurantId, name, price, description, category, imageUrl, available });
+    // Invalidate cache
+    Object.keys(menuCache).forEach(key => {
+      if (key === 'all' || key === restaurantId) delete menuCache[key];
+    });
     return NextResponse.json({ success: true, item }, { status: 201 });
   } catch {
-    return NextResponse.json({ success: false, message: 'Failed to create item. Ensure name is unique.' }, { status: 500 });
+    return NextResponse.json({ success: false, message: 'Failed to create item. Ensure name is unique for this restaurant.' }, { status: 500 });
   }
 }

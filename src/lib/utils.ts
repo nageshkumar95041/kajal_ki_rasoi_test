@@ -50,8 +50,18 @@ export interface CartData {
 export function getCart(): CartItem[] {
   if (typeof window === 'undefined') return [];
   try {
-    const data: CartData = JSON.parse(localStorage.getItem('cart') || '{"items":[]}');
-    return data.items || [];
+    const parsed: unknown = JSON.parse(localStorage.getItem('cart') || '{"items":[]}');
+    const items = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray((parsed as CartData).items)
+        ? (parsed as CartData).items
+        : [];
+
+    return items.map((item: any) => ({
+      name: item?.name ?? '',
+      price: Number(item?.price) || 0,
+      quantity: Number(item?.quantity) > 0 ? Number(item.quantity) : 1,
+    }));
   } catch {
     return [];
   }

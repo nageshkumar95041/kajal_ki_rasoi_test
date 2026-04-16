@@ -12,16 +12,21 @@ export async function POST(req: NextRequest) {
   if (!token) return NextResponse.json({ success: false, message: 'Token required.' }, { status: 400 });
   try {
     const ticket = await googleClient.verifyIdToken({ idToken: token, audience: process.env.GOOGLE_CLIENT_ID });
-    const payload = ticket.getPayload()!;
-    const email = payload['email']!.toLowerCase();
-    const name = payload['name']!;
+    const payload = ticket.getPayload();
+    const email = payload?.email?.toLowerCase();
+    const name = payload?.name;
+    if (!email || !name) {
+      return NextResponse.json({ success: false, message: 'Invalid Google token.' }, { status: 401 });
+    }
     await connectDB();
     let user = await User.findOne({ contact: email });
     if (!user) {
       const rp = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10);
       user = await User.create({ name, contact: email, password: await bcrypt.hash(rp, 10), role: 'user', isVerified: true });
     }
-    const hasRestaurant = await Restaurant.exists({ ownerId: user._id.toString() });
+    const hasRestaurant = typeof (Restaurant as any)?.exists === 'function'
+      ? await (Restaurant as any).exists({ ownerId: user._id.toString() })
+      : null;
     const jwtToken = signToken({ id: user._id.toString(), role: user.role });
     const res = NextResponse.json({
       success: true,

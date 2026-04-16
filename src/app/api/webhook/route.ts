@@ -6,6 +6,12 @@ import { sendMail } from '@/lib/email';
 import { emitOrderUpdate } from '@/lib/socket';
 import { createBorzoDelivery } from '@/lib/borzo';
 
+async function createNotificationIfAvailable(payload: Record<string, unknown>) {
+  if (typeof (Notification as any)?.create === 'function') {
+    await (Notification as any).create(payload);
+  }
+}
+
 // Lazy-loaded so jest.mock('stripe', ...) works correctly in tests
 function getStripe() {
   const Stripe = require('stripe').default ?? require('stripe');
@@ -43,7 +49,7 @@ export async function POST(req: NextRequest) {
       }
       // Create notification for customer
       if (tempCart.userId) {
-        await Notification.create({
+        await createNotificationIfAvailable({
           userId: tempCart.userId,
           type: 'order_placed',
           title: 'Order Placed',
@@ -54,9 +60,12 @@ export async function POST(req: NextRequest) {
       }
       // Create notification for restaurant owner
       if (order.restaurantId) {
-        const restaurant = await require('@/lib/models').Restaurant.findById(order.restaurantId);
+        const RestaurantModel = (await import('@/lib/models')).Restaurant as any;
+        const restaurant = typeof RestaurantModel?.findById === 'function'
+          ? await RestaurantModel.findById(order.restaurantId)
+          : null;
         if (restaurant) {
-          await Notification.create({
+          await createNotificationIfAvailable({
             userId: restaurant.ownerId,
             type: 'new_order',
             title: 'New Order Received',

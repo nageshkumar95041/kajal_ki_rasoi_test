@@ -10,7 +10,8 @@ export interface RateLimitOptions {
 const requestCounts = new Map<string, { count: number; resetTime: number }>();
 
 function applyRateLimit(req: NextRequest, options: RateLimitOptions): NextResponse | null {
-  const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  const ip = forwardedFor?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
   const now = Date.now();
   const record = requestCounts.get(ip);
 
@@ -40,7 +41,7 @@ export function rateLimit(arg1: NextRequest | RateLimitOptions, arg2?: RateLimit
 }
 
 // Cleanup old entries every 5 minutes
-setInterval(() => {
+const cleanupInterval = setInterval(() => {
   const now = Date.now();
   for (const [ip, record] of requestCounts.entries()) {
     if (now > record.resetTime) {
@@ -48,6 +49,7 @@ setInterval(() => {
     }
   }
 }, 5 * 60 * 1000);
+cleanupInterval.unref?.();
 
 // Rate limit configs for different endpoints
 export const RATE_LIMITS = {

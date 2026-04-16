@@ -28,6 +28,9 @@ export function validatePhone(phone: string): ValidationResult {
 }
 
 export function validatePrice(price: unknown): ValidationResult {
+  if (price === null || price === undefined || price === '') {
+    return { valid: false, error: 'Price must be a positive number' };
+  }
   const num = Number(price);
   if (isNaN(num) || num < 0 || num > 999999) {
     return { valid: false, error: 'Price must be a positive number' };
@@ -87,35 +90,35 @@ export function sanitizeEmail(email: string): string {
 export function validateOrderStatus(status: string): ValidationResult {
   const validStatuses = ['Pending', 'Preparing', 'Out for Delivery', 'Completed', 'Rejected', 'Cancelled', 'Failed'];
   if (!validStatuses.includes(status)) {
-    return { isValid: false, error: `Status must be one of: ${validStatuses.join(', ')}` };
+    return { valid: false, error: `Status must be one of: ${validStatuses.join(', ')}` };
   }
-  return { isValid: true };
+  return { valid: true };
 }
 
 export function validateRestaurantForm(data: any): ValidationResult {
-  if (!data.name) return { isValid: false, error: 'Restaurant name is required' };
+  if (!data.name) return { valid: false, error: 'Restaurant name is required' };
   const nameVal = validateString(data.name, 2, 100, 'Restaurant name');
-  if (!nameVal.isValid) return nameVal;
+  if (!nameVal.valid) return nameVal;
   
-  if (!data.contact) return { isValid: false, error: 'Contact is required' };
+  if (!data.contact) return { valid: false, error: 'Contact is required' };
   const contactVal = validatePhone(data.contact);
-  if (!contactVal.isValid) return contactVal;
+  if (!contactVal.valid) return contactVal;
   
-  if (!data.address) return { isValid: false, error: 'Address is required' };
+  if (!data.address) return { valid: false, error: 'Address is required' };
   const addressVal = validateString(data.address, 5, 250, 'Address');
-  if (!addressVal.isValid) return addressVal;
+  if (!addressVal.valid) return addressVal;
   
-  return { isValid: true };
+  return { valid: true };
 }
 
 export function validateMenuItemForm(data: any): ValidationResult {
-  if (!data.name) return { isValid: false, error: 'Item name is required' };
+  if (!data.name) return { valid: false, error: 'Item name is required' };
   const nameVal = validateString(data.name, 2, 100, 'Item name');
-  if (!nameVal.isValid) return nameVal;
+  if (!nameVal.valid) return nameVal;
   
-  if (!data.price && data.price !== 0) return { isValid: false, error: 'Price is required' };
+  if (!data.price && data.price !== 0) return { valid: false, error: 'Price is required' };
   const priceVal = validatePrice(data.price);
-  if (!priceVal.isValid) return priceVal;
+  if (!priceVal.valid) return priceVal;
   
-  return { isValid: true };
+  return { valid: true };
 }

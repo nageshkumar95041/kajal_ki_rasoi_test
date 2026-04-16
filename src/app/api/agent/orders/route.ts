@@ -20,10 +20,27 @@ export async function GET(req: NextRequest) {
   }
 
   // Query orders by agent._id (which is what gets stored in order.agentId)
-  const orders = await Order.find({
+  const baseQuery = Order.find({
     agentId: agent._id,
     status: { $in: ['Out for Delivery', 'Preparing'] },
   }).sort({ timestamp: -1 });
+
+  const rawOrders = typeof (baseQuery as any)?.populate === 'function'
+    ? await (baseQuery as any).populate('restaurantId', 'name address')
+    : await baseQuery;
+
+  const orders = (Array.isArray(rawOrders) ? rawOrders : []).map((order: any) => {
+    const plainOrder = typeof order?.toObject === 'function' ? order.toObject() : order;
+    const restaurant = plainOrder?.restaurantId && typeof plainOrder.restaurantId === 'object'
+      ? plainOrder.restaurantId
+      : null;
+
+    return {
+      ...plainOrder,
+      restaurantName: restaurant?.name || undefined,
+      restaurantAddress: restaurant?.address || undefined,
+    };
+  });
 
   return NextResponse.json({
     success: true,

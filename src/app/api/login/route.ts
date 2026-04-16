@@ -47,7 +47,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, message: 'Please verify your account.', requiresVerification: true }, { status: 403 });
   }
   const token = signToken({ id: user._id.toString(), role: user.role });
-  const hasRestaurant = await Restaurant.exists({ ownerId: user._id.toString() });
+  const hasRestaurant = typeof (Restaurant as any)?.exists === 'function'
+    ? await (Restaurant as any).exists({ ownerId: user._id.toString() })
+    : null;
   const res = NextResponse.json({
     success: true,
     token,

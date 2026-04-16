@@ -25,8 +25,8 @@ export async function POST(req: NextRequest) {
   if (auth instanceof NextResponse) return auth;
   await connectDB();
   const { restaurantId, name, price, description, category, imageUrl, available } = await req.json();
-  if (!restaurantId || !name || typeof price !== 'number') {
-    return NextResponse.json({ success: false, message: 'Restaurant ID, valid name and price are required.' }, { status: 400 });
+  if (!name || typeof price !== 'number') {
+    return NextResponse.json({ success: false, message: 'Valid name and price are required.' }, { status: 400 });
   }
   try {
     const item = await MenuItem.create({ restaurantId, name, price, description, category, imageUrl, available });

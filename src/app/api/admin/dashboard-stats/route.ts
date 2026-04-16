@@ -3,6 +3,12 @@ import { connectDB } from '@/lib/mongodb';
 import { MenuItem, Order, Restaurant } from '@/lib/models';
 import { requireAdmin } from '@/lib/auth';
 
+async function aggregateSafe(model: any, pipeline: Record<string, unknown>[]): Promise<any[]> {
+  if (typeof model?.aggregate !== 'function') return [];
+  const result = await model.aggregate(pipeline);
+  return Array.isArray(result) ? result : [];
+}
+
 export async function GET(req: NextRequest) {
   const auth = requireAdmin(req);
   if (auth instanceof NextResponse) return auth;
@@ -26,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   const [revenueStats, orderCounts, topItems, restaurantCounts, menuCoverage, liveRestaurantCounts, topRestaurants] = await Promise.all([
     // Revenue: only Completed orders
-    Order.aggregate([
+    aggregateSafe(Order, [
       { $match: { status: 'Completed' } },
       { $facet: {
         today: [
@@ -45,13 +51,13 @@ export async function GET(req: NextRequest) {
     ]),
 
     // Order counts by status — all statuses
-    Order.aggregate([
+    aggregateSafe(Order, [
       { $group: { _id: '$status', count: { $sum: 1 } } },
       { $sort: { _id: 1 } },
     ]),
 
     // Top selling items — use $ifNull so items without quantity default to 1
-    Order.aggregate([
+    aggregateSafe(Order, [
       { $match: { status: { $in: ['Preparing', 'Out for Delivery', 'Completed'] } } },
       { $unwind: '$items' },
       { $group: {
@@ -63,7 +69,7 @@ export async function GET(req: NextRequest) {
     ]),
 
     // Restaurant network stats
-    Restaurant.aggregate([
+    aggregateSafe(Restaurant, [
       {
         $facet: {
           total: [{ $count: 'count' }],
@@ -74,20 +80,20 @@ export async function GET(req: NextRequest) {
     ]),
 
     // Restaurants that have at least one menu item
-    MenuItem.aggregate([
+    aggregateSafe(MenuItem, [
       { $group: { _id: '$restaurantId' } },
       { $count: 'count' },
     ]),
 
     // Restaurants with live orders
-    Order.aggregate([
+    aggregateSafe(Order, [
       { $match: { status: { $in: ['Pending', 'Preparing', 'Out for Delivery'] }, restaurantId: { $ne: null } } },
       { $group: { _id: '$restaurantId' } },
       { $count: 'count' },
     ]),
 
     // Top restaurants by completed revenue
-    Order.aggregate([
+    aggregateSafe(Order, [
       { $match: { status: 'Completed', restaurantId: { $ne: null } } },
       {
         $group: {

@@ -46,7 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: { orderId: st
 
   await createBorzoDelivery(order);
 
-  const updatedOrder = await Order.findById(order._id).lean();
+  const updatedOrder = (await Order.findById(order._id).lean()) as { borzoTrackingUrl?: string } | null;
   if (!updatedOrder) {
     return NextResponse.json({ success: false, message: 'Order not found after dispatch.' }, { status: 404 });
   }

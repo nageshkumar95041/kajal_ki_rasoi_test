@@ -4,6 +4,9 @@ const config: Config = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
+  modulePathIgnorePatterns: ['<rootDir>/.next', '<rootDir>/dist'],
+  testPathIgnorePatterns: ['<rootDir>/.next', '<rootDir>/dist'],
+  watchPathIgnorePatterns: ['<rootDir>/.next', '<rootDir>/dist'],
   testMatch: [
     '**/__tests__/**/*.test.ts',
     '**/__tests__/**/*.test.tsx',
@@ -22,6 +25,7 @@ const config: Config = {
       displayName: 'unit',
       preset: 'ts-jest',
       testEnvironment: 'node',
+      modulePathIgnorePatterns: ['<rootDir>/.next', '<rootDir>/dist'],
       testMatch: ['<rootDir>/src/__tests__/unit/**/*.test.ts'],
       moduleNameMapper: { '^@/(.*)$': '<rootDir>/src/$1' },
       transform: {
@@ -41,6 +45,7 @@ const config: Config = {
       displayName: 'component',
       preset: 'ts-jest',
       testEnvironment: 'jsdom',
+      modulePathIgnorePatterns: ['<rootDir>/.next', '<rootDir>/dist'],
       testMatch: ['<rootDir>/src/__tests__/component/**/*.test.tsx'],
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
@@ -60,6 +65,7 @@ const config: Config = {
       displayName: 'integration',
       preset: 'ts-jest',
       testEnvironment: 'node',
+      modulePathIgnorePatterns: ['<rootDir>/.next', '<rootDir>/dist'],
       testMatch: ['<rootDir>/src/__tests__/integration/**/*.test.ts'],
       moduleNameMapper: { '^@/(.*)$': '<rootDir>/src/$1' },
       transform: {

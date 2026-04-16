@@ -7,7 +7,10 @@ import { rateLimit, RATE_LIMITS } from '@/lib/rateLimit';
 
 export async function POST(req: NextRequest) {
   // Apply rate limiting
-  const rateLimitError = rateLimit(RATE_LIMITS.api.maxRequests, RATE_LIMITS.api.windowMs)(req);
+  const rateLimitError = rateLimit({
+    maxRequests: RATE_LIMITS.api.maxRequests,
+    windowMs: RATE_LIMITS.api.windowMs,
+  })(req);
   if (rateLimitError) return rateLimitError;
 
   const auth = requireAuth(req);

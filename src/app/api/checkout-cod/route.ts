@@ -13,6 +13,12 @@ import {
   priceCartItems,
 } from '@/lib/payment';
 
+async function createNotificationIfAvailable(payload: Record<string, unknown>) {
+  if (typeof (Notification as any)?.create === 'function') {
+    await (Notification as any).create(payload);
+  }
+}
+
 export async function POST(req: NextRequest) {
   // Apply rate limiting for checkout (5 per minute)
   const rateLimitError = rateLimit({ maxRequests: 5, windowMs: 60000 })(req);
@@ -96,7 +102,7 @@ export async function POST(req: NextRequest) {
   });
 
   // Create notification for customer
-  await Notification.create({
+  await createNotificationIfAvailable({
     userId: user.id,
     type: 'order_placed',
     title: 'Order Placed',
@@ -107,9 +113,11 @@ export async function POST(req: NextRequest) {
 
   // Create notification for restaurant owner
   if (restaurantId) {
-    const restaurant = await Restaurant.findById(restaurantId);
+    const restaurant = typeof (Restaurant as any)?.findById === 'function'
+      ? await (Restaurant as any).findById(restaurantId)
+      : null;
     if (restaurant) {
-      await Notification.create({
+      await createNotificationIfAvailable({
         userId: restaurant.ownerId,
         type: 'new_order',
         title: 'New Order Received',

@@ -25,7 +25,7 @@ async function sendOtpToCustomer(
   if (order.contact && order.contact.includes('@')) {
     email = order.contact;
   } else if (order.userId) {
-    const user = await User.findById(order.userId).select('contact').lean();
+    const user = (await User.findById(order.userId).select('contact').lean()) as { contact?: string } | null;
     if (user?.contact?.includes('@')) email = user.contact;
   }
 

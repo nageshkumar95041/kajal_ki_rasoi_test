@@ -20,7 +20,6 @@ export async function POST(req: NextRequest) {
 
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  await connectDB();
   const { name, contact, address, description, imageUrl, lat, lng } = await req.json();
   
   // Validate restaurant form
@@ -28,6 +27,8 @@ export async function POST(req: NextRequest) {
   if (!validation.valid) {
     return NextResponse.json({ success: false, message: validation.error }, { status: 400 });
   }
+
+  await connectDB();
 
   try {
     // Check if user already has a restaurant

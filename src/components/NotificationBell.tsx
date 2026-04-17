@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface Notification {
   _id: string;
@@ -16,94 +16,121 @@ export default function NotificationBell() {
   const [showDropdown, setShowDropdown] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000); // Refresh every 30 seconds
-    return () => clearInterval(interval);
+  // Track which token we last fetched for.
+  // If it changes (login / logout / user switch), we wipe state immediately
+  // so no user ever sees another user's notifications.
+  const lastTokenRef = useRef<string | null>(null);
+
+  const getToken = () =>
+    typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+
+  const clearState = useCallback(() => {
+    setNotifications([]);
+    setUnreadCount(0);
+    setShowDropdown(false);
   }, []);
 
-  useEffect(() => {
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (!containerRef.current) return;
-      if (!containerRef.current.contains(event.target as Node)) {
-        setShowDropdown(false);
-      }
-    };
+  const fetchNotifications = useCallback(async () => {
+    const token = getToken();
 
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
-    };
-  }, []);
-
-  const fetchNotifications = async () => {
-    try {
-      const token = localStorage.getItem('authToken');
+    // Token changed (logout, user switch, expiry) — wipe immediately
+    if (token !== lastTokenRef.current) {
+      lastTokenRef.current = token;
+      clearState();
       if (!token) return;
+    }
+
+    if (!token) return;
+
+    try {
       const res = await fetch('/api/notifications?limit=10', {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      // Token rejected server-side — clear and bail
+      if (res.status === 401 || res.status === 403) {
+        lastTokenRef.current = null;
+        clearState();
+        return;
+      }
+
       if (res.ok) {
         const data = await res.json();
-        setNotifications(data.notifications);
-        setUnreadCount(data.unreadCount);
+        // Guard: if the token changed while we were awaiting, discard the result
+        if (getToken() !== token) { clearState(); return; }
+        setNotifications(data.notifications ?? []);
+        setUnreadCount(data.unreadCount ?? 0);
       }
-    } catch (error) {
-      console.error('Failed to fetch notifications');
+    } catch {
+      // Network error — leave existing state, retry on next interval
     }
-  };
+  }, [clearState]);
+
+  // Re-fetch immediately when localStorage changes (login / logout in same tab)
+  useEffect(() => {
+    const onStorage = () => fetchNotifications();
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [fetchNotifications]);
+
+  // Initial fetch + 30 s polling
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30_000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const markAsRead = async (id: string) => {
+    const token = getToken();
+    if (!token) return;
     try {
-      const token = localStorage.getItem('authToken');
       const res = await fetch(`/api/notifications/${id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ isRead: true }),
       });
       if (res.ok) {
         setNotifications(n => n.map(notif => notif._id === id ? { ...notif, isRead: true } : notif));
-        setUnreadCount(Math.max(0, unreadCount - 1));
+        setUnreadCount(c => Math.max(0, c - 1));
       }
-    } catch (error) {
-      console.error('Failed to mark notification as read');
-    }
+    } catch { /* ignore */ }
   };
 
   const deleteNotification = async (id: string) => {
+    const token = getToken();
+    if (!token) return;
     try {
-      const token = localStorage.getItem('authToken');
       const res = await fetch(`/api/notifications/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const notif = notifications.find(n => n._id === id);
-        if (notif && !notif.isRead) setUnreadCount(Math.max(0, unreadCount - 1));
+        if (notif && !notif.isRead) setUnreadCount(c => Math.max(0, c - 1));
         setNotifications(n => n.filter(notif => notif._id !== id));
       }
-    } catch (error) {
-      console.error('Failed to delete notification');
-    }
+    } catch { /* ignore */ }
   };
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'order_placed':
-        return '🛒';
-      case 'order_status':
-        return '📦';
-      case 'order_completed':
-        return '✅';
-      case 'new_order':
-        return '📬';
-      case 'payment_received':
-        return '💰';
-      default:
-        return '🔔';
+      case 'order_placed':     return '🛒';
+      case 'order_status':     return '📦';
+      case 'order_completed':  return '✅';
+      case 'new_order':        return '📬';
+      case 'payment_received': return '💰';
+      default:                 return '🔔';
     }
   };
 

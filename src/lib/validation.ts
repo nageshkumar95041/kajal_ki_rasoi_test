@@ -99,15 +99,18 @@ export function validateRestaurantForm(data: any): ValidationResult {
   if (!data.name) return { valid: false, error: 'Restaurant name is required' };
   const nameVal = validateString(data.name, 2, 100, 'Restaurant name');
   if (!nameVal.valid) return nameVal;
-  
+
   if (!data.contact) return { valid: false, error: 'Contact is required' };
-  const contactVal = validatePhone(data.contact);
-  if (!contactVal.valid) return contactVal;
-  
+  const isEmail = validateEmail(data.contact).valid;
+  const isPhone = validatePhone(data.contact).valid;
+  if (!isEmail && !isPhone) {
+    return { valid: false, error: 'Contact must be a valid email or phone number' };
+  }
+
   if (!data.address) return { valid: false, error: 'Address is required' };
   const addressVal = validateString(data.address, 5, 250, 'Address');
   if (!addressVal.valid) return addressVal;
-  
+
   return { valid: true };
 }
 

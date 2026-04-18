@@ -31,6 +31,7 @@ interface Restaurant {
   _id: string;
   name: string;
   address: string;
+  isOpen?: boolean;
 }
 
 export default function MenuClient() {
@@ -79,8 +80,23 @@ export default function MenuClient() {
     return restaurants.find((restaurant) => restaurant._id === restaurantId)?.name || 'Partner Kitchen';
   }
 
+  function isRestaurantOpen(restaurantId?: string): boolean {
+    if (!restaurantId) return true;
+    const restaurant = restaurants.find((r) => r._id === restaurantId);
+    return restaurant ? restaurant.isOpen !== false : true;
+  }
+
   function addToCart(name: string, price: number, restaurantId?: string) {
     if (!checkAuth()) return;
+
+    if (!isRestaurantOpen(restaurantId)) {
+      window.showSystemToast?.(
+        'Restaurant Closed',
+        `${getRestaurantName(restaurantId)} is currently closed and not accepting orders.`,
+        'warning'
+      );
+      return;
+    }
 
     const activeRestaurantId = restaurantId || cartRestaurantId || undefined;
     if (cart.length > 0 && cartRestaurantId && activeRestaurantId && cartRestaurantId !== activeRestaurantId) {
@@ -291,15 +307,30 @@ export default function MenuClient() {
                     const isVeg = !safeName.toLowerCase().includes('chicken') && !safeName.toLowerCase().includes('egg');
 
                     return (
-                      <div key={item._id} className={`menu-card ${!isAvail ? 'item-unavailable' : ''}`} data-name={safeName} data-price={item.price}>
-                        <div className="card-img-container">
+                      <div key={item._id} className={`menu-card ${!isAvail || !isRestaurantOpen(item.restaurantId) ? 'item-unavailable' : ''}`} data-name={safeName} data-price={item.price}>
+                        <div className="card-img-container" style={{ position: 'relative' }}>
                           {/* Plain img is intentional because cards can use arbitrary remote image URLs from admin input. */}
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={imgSrc} alt={safeName} className="card-img" loading="lazy" />
-                          {isRec && isAvail && <span className="badge badge-recommended">Recommended</span>}
-                          {isBest && isAvail && !isRec && <span className="badge badge-bestseller">Best Seller</span>}
+                          <img src={imgSrc} alt={safeName} className="card-img" loading="lazy" style={{ filter: (!isAvail || !isRestaurantOpen(item.restaurantId)) ? 'grayscale(60%) brightness(0.65)' : undefined }} />
+                          {isRec && isAvail && isRestaurantOpen(item.restaurantId) && <span className="badge badge-recommended">Recommended</span>}
+                          {isBest && isAvail && !isRec && isRestaurantOpen(item.restaurantId) && <span className="badge badge-bestseller">Best Seller</span>}
                           {isVeg && isAvail && <span className="badge badge-veg"><span className="veg-dot"></span>Veg</span>}
                           {!isAvail && <span className="badge badge-sold-out">Sold Out</span>}
+                          {isAvail && !isRestaurantOpen(item.restaurantId) && (
+                            <div style={{
+                              position: 'absolute', inset: 0,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              <span style={{
+                                background: 'rgba(0,0,0,0.62)',
+                                color: '#fff',
+                                fontSize: 13, fontWeight: 700,
+                                padding: '7px 18px', borderRadius: 999,
+                                border: '1.5px solid rgba(255,255,255,0.2)',
+                                letterSpacing: '0.04em',
+                              }}>🔴 Currently Closed</span>
+                            </div>
+                          )}
                         </div>
                         <div className="card-content">
                           <div className="card-title-row"><h3>{safeName}</h3></div>
@@ -309,11 +340,23 @@ export default function MenuClient() {
                             <span className="menu-card-source-pill">{escapeHTML(getRestaurantName(item.restaurantId))}</span>
                           </div>
                           <div className="card-footer">
-                            <span className="price">Rs{item.price}</span>
+                            <span className="price" style={{ color: !isRestaurantOpen(item.restaurantId) ? '#aaa' : undefined }}>Rs{item.price}</span>
                             <div className="card-action-control">
                               {!isAvail ? (
                                 <button className="btn-order" style={{ backgroundColor: '#95a5a6', cursor: 'not-allowed' }} disabled>
                                   Sold Out
+                                </button>
+                              ) : !isRestaurantOpen(item.restaurantId) ? (
+                                <button className="btn-order" style={{
+                                  backgroundColor: 'transparent',
+                                  color: '#aaa',
+                                  border: '1.5px solid #ddd',
+                                  cursor: 'not-allowed',
+                                  fontWeight: 600,
+                                  letterSpacing: '0.05em',
+                                  fontSize: 13,
+                                }} disabled>
+                                  Closed
                                 </button>
                               ) : qty > 0 ? (
                                 <div className="qty-stepper">

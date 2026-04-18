@@ -180,6 +180,7 @@ export default function RestaurantDashboard() {
     imageUrl: '',
     available: true,
   });
+  const [menuImagePreview, setMenuImagePreview] = useState('');
 
   useEffect(() => { loadDashboard(); }, []);
 
@@ -249,6 +250,27 @@ export default function RestaurantDashboard() {
   const updateMenuField = (field: keyof typeof menuForm, value: string | boolean) =>
     setMenuForm((c) => ({ ...c, [field]: value }));
 
+  const handleMenuImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > 800) { h = Math.round(h * 800 / w); w = 800; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+        const url = canvas.toDataURL('image/jpeg', 0.8);
+        setMenuForm((f) => ({ ...f, imageUrl: url }));
+        setMenuImagePreview(url);
+      };
+      img.src = ev.target!.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const addMenuItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!menuForm.name.trim() || !menuForm.price.trim()) {
@@ -266,6 +288,7 @@ export default function RestaurantDashboard() {
       if (data.success) {
         setMenuItems((c) => [data.item, ...c]);
         setMenuForm({ name: '', price: '', description: '', category: 'Main Course', imageUrl: '', available: true });
+        setMenuImagePreview('');
         setShowAddMenu(false);
         window.showSystemToast?.('Saved', 'Menu item added successfully.', 'success');
       } else {
@@ -913,6 +936,22 @@ export default function RestaurantDashboard() {
                 </button>
               </div>
 
+              {restaurant?.isOpen === false && (
+                <div style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 12,
+                  background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)',
+                  borderRadius: 12, padding: '12px 16px', marginBottom: 20,
+                }}>
+                  <span style={{ fontSize: 16, marginTop: 1 }}>🔴</span>
+                  <div>
+                    <p style={{ color: '#f87171', fontWeight: 700, fontSize: 13, margin: '0 0 2px' }}>Restaurant is Currently Closed</p>
+                    <p style={{ color: '#71717a', fontSize: 12, margin: 0 }}>
+                      Your menu items are not visible to customers. Adding new items is disabled until you reopen.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {showAddMenu && (
                 <form onSubmit={addMenuItem} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20, marginBottom: 24 }}>
                   <h3 style={{ color: C.textMain, fontSize: 15, fontWeight: 600, margin: '0 0 16px' }}>New Menu Item</h3>
@@ -937,8 +976,53 @@ export default function RestaurantDashboard() {
                       </select>
                     </label>
                     <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <span style={{ color: C.textMuted, fontSize: 12, fontWeight: 600 }}>Image URL</span>
-                      <input type="url" placeholder="https://…" value={menuForm.imageUrl} onChange={(e) => updateMenuField('imageUrl', e.target.value)} style={inputStyle} />
+                      <span style={{ color: C.textMuted, fontSize: 12, fontWeight: 600 }}>Image</span>
+                      {/* Upload button */}
+                      <label style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        background: C.elevated, border: `1.5px dashed ${C.border2}`,
+                        borderRadius: 8, padding: '10px 12px', cursor: 'pointer',
+                        color: C.textMuted, fontSize: 13, fontWeight: 600,
+                      }}>
+                        📷 Upload Image
+                        <input type="file" accept="image/*" onChange={handleMenuImageUpload} style={{ display: 'none' }} />
+                      </label>
+                      {/* OR divider */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ flex: 1, height: 1, background: C.border }} />
+                        <span style={{ color: C.textFaint, fontSize: 11 }}>or paste URL</span>
+                        <div style={{ flex: 1, height: 1, background: C.border }} />
+                      </div>
+                      <input
+                        type="url" placeholder="https://…"
+                        value={menuForm.imageUrl.startsWith('data:') ? '' : menuForm.imageUrl}
+                        onChange={(e) => {
+                          updateMenuField('imageUrl', e.target.value);
+                          setMenuImagePreview(e.target.value);
+                        }}
+                        style={inputStyle}
+                      />
+                      {/* Preview */}
+                      {menuImagePreview && (
+                        <div style={{ position: 'relative', marginTop: 4 }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={menuImagePreview} alt="Preview"
+                            style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, border: `1px solid ${C.border}` }}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => { setMenuImagePreview(''); updateMenuField('imageUrl', ''); }}
+                            style={{
+                              position: 'absolute', top: 6, right: 6,
+                              background: 'rgba(0,0,0,0.6)', border: 'none',
+                              color: '#fff', borderRadius: '50%', width: 22, height: 22,
+                              cursor: 'pointer', fontSize: 12, lineHeight: '22px', textAlign: 'center',
+                            }}
+                          >✕</button>
+                        </div>
+                      )}
                     </label>
                   </div>
                   <label style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
@@ -981,7 +1065,17 @@ export default function RestaurantDashboard() {
                         backgroundImage: `linear-gradient(180deg, rgba(12,10,9,0.1) 0%, rgba(12,10,9,0.55) 100%), url(${item.imageUrl || getDefaultImage(item.name)})`,
                         backgroundSize: 'cover', backgroundPosition: 'center',
                       }}>
-                        <div style={{ position: 'absolute', top: 10, right: 10 }}>
+                        <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                          {restaurant?.isOpen === false && (
+                            <span style={{
+                              fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999,
+                              background: 'rgba(239,68,68,0.18)',
+                              color: '#f87171',
+                              border: '1px solid rgba(239,68,68,0.35)',
+                            }}>
+                              ✕ Closed
+                            </span>
+                          )}
                           <span style={{
                             fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999,
                             background: item.available ? 'rgba(16,185,129,0.18)' : 'rgba(82,82,91,0.5)',

@@ -54,6 +54,14 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
+  // Block order if restaurant is closed
+  if (restaurantId) {
+    const restaurantCheck = await Restaurant.findById(restaurantId).lean() as any;
+    if (restaurantCheck && restaurantCheck.isOpen === false) {
+      return NextResponse.json({ error: 'This restaurant is currently closed and not accepting orders.' }, { status: 400 });
+    }
+  }
+
   const setting = await SiteSettings.findOne({ key: 'onlinePaymentEnabled' }).lean() as unknown as { value: any } | null;
   const val = setting?.value;
   const onlineEnabled = val === true || val === 'true' || val === 1 || val === '1';
@@ -118,7 +126,7 @@ export async function POST(req: NextRequest) {
       : null;
     if (restaurant) {
       await createNotificationIfAvailable({
-        userId: restaurant.ownerId,
+        userId: String(restaurant.ownerId),
         type: 'new_order',
         title: 'New Order Received',
         message: `New order #${String(newOrder._id).slice(-5)} from ${normalizedCustomerName} for ₹${total}`,

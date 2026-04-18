@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
+import { Restaurant } from '@/lib/models';
 import { MenuItem, TiffinItem, TempCart } from '@/lib/models';
 import { optionalAuth } from '@/lib/auth';
 import { rateLimit } from '@/lib/rateLimit';
@@ -62,6 +63,14 @@ export async function POST(req: NextRequest) {
   const coupon = applyApna50Coupon(pricedCart.subtotal, couponCode);
   const finalTotal = coupon.finalTotal;
   const safeDeliveryFee = 0;
+  // Block order if restaurant is closed
+  if (restaurantId) {
+    const restaurantCheck = await Restaurant.findById(restaurantId).lean() as any;
+    if (restaurantCheck && restaurantCheck.isOpen === false) {
+      return NextResponse.json({ error: 'This restaurant is currently closed and not accepting orders.' }, { status: 400 });
+    }
+  }
+
   const stripe = getStripe();
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],

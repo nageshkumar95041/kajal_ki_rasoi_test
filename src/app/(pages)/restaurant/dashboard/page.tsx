@@ -165,6 +165,7 @@ export default function RestaurantDashboard() {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [savingOrderId, setSavingOrderId] = useState('');
   const [savingMenu, setSavingMenu] = useState(false);
+  const [togglingOpen, setTogglingOpen] = useState(false);
   const [menuActionItemId, setMenuActionItemId] = useState('');
   const [loadingDelivery, setLoadingDelivery] = useState(false);
   const [assigningOrderId, setAssigningOrderId] = useState('');
@@ -274,6 +275,34 @@ export default function RestaurantDashboard() {
       window.showSystemToast?.('Error', 'Failed to add menu item.', 'error');
     } finally {
       setSavingMenu(false);
+    }
+  };
+
+  const toggleRestaurantOpen = async () => {
+    if (!restaurant) return;
+    const token = getRestaurantToken();
+    const newIsOpen = !(restaurant.isOpen !== false);
+    setTogglingOpen(true);
+    try {
+      const res = await fetch('/api/my-restaurant', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ isOpen: newIsOpen }),
+      });
+      if (res.ok) {
+        setRestaurant((r) => r ? { ...r, isOpen: newIsOpen } : r);
+        window.showSystemToast?.(
+          newIsOpen ? 'Restaurant Open' : 'Restaurant Closed',
+          newIsOpen ? 'You are now accepting orders.' : 'You are no longer accepting orders.',
+          newIsOpen ? 'success' : 'warning'
+        );
+      } else {
+        window.showSystemToast?.('Error', 'Failed to update restaurant status.', 'error');
+      }
+    } catch {
+      window.showSystemToast?.('Error', 'Network error. Please try again.', 'error');
+    } finally {
+      setTogglingOpen(false);
     }
   };
 
@@ -476,20 +505,26 @@ export default function RestaurantDashboard() {
                   ))}
                 </div>
               </div>
-              <div style={{
-                padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600,
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: restaurant.isOpen === false ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)',
-                color: restaurant.isOpen === false ? '#f87171' : '#34d399',
-                border: `1px solid ${restaurant.isOpen === false ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
-              }}>
+              <button
+                onClick={toggleRestaurantOpen}
+                disabled={togglingOpen}
+                title={restaurant.isOpen === false ? 'Click to open restaurant' : 'Click to close restaurant'}
+                style={{
+                  padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+                  display: 'flex', alignItems: 'center', gap: 6, cursor: togglingOpen ? 'wait' : 'pointer',
+                  background: restaurant.isOpen === false ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)',
+                  color: restaurant.isOpen === false ? '#f87171' : '#34d399',
+                  border: `1px solid ${restaurant.isOpen === false ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
+                  transition: 'all 0.2s', opacity: togglingOpen ? 0.6 : 1,
+                }}>
                 <span style={{
                   width: 6, height: 6, borderRadius: '50%',
                   background: restaurant.isOpen === false ? '#f87171' : '#34d399',
                   display: 'inline-block',
+                  animation: restaurant.isOpen !== false ? 'pulse 2s infinite' : 'none',
                 }} />
-                {restaurant.isOpen === false ? 'Closed' : 'Open for orders'}
-              </div>
+                {togglingOpen ? 'Updating...' : (restaurant.isOpen === false ? '● Closed — tap to open' : '● Open for orders — tap to close')}
+              </button>
             </div>
           </div>
         </div>

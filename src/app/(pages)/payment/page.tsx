@@ -319,8 +319,9 @@ export default function PaymentPage() {
     } else { setCouponMsg('❌ Invalid coupon or minimum ₹200 required.'); }
   }
 
-  const subtotal   = cart.reduce((s, i) => s + i.price * (i.quantity || 1), 0);
-  const finalTotal = subtotal - discount + deliveryFee;
+  const subtotal      = cart.reduce((s, i) => s + i.price * (i.quantity || 1), 0);
+  const offerDiscount = offerStatus.eligible ? offerStatus.discount : 0;
+  const finalTotal    = Math.max(0, subtotal - discount - offerDiscount + deliveryFee);
 
   function saveCurrentAddress(label: string) {
     const u = getLoggedInUser();
@@ -416,13 +417,20 @@ export default function PaymentPage() {
           {/* Order summary */}
           <div style={{ marginBottom: '1.5rem', padding: '1.5rem', background: '#f8f9fa', borderRadius: 8, textAlign: 'center', color: '#2c3e50', lineHeight: 1.6 }}>
             <strong>{cart.reduce((s, i) => s + (i.quantity || 1), 0)} Item(s)</strong> | Subtotal: ₹{subtotal}<br />
-            {discount > 0 && <span style={{ color: '#27ae60' }}>Discount: -₹{discount}<br /></span>}
+            {discount > 0 && <span style={{ color: '#27ae60' }}>Coupon Discount: -₹{discount}<br /></span>}
+            {offerDiscount > 0 && (
+              <span style={{ color: '#16a34a', fontWeight: 600 }}>
+                🎁 First Tiffin FREE: -₹{offerDiscount}<br />
+              </span>
+            )}
             <span style={{ color: '#27ae60' }}>Delivery: FREE 🚴<br /></span>
             <span style={{ color: offerStatus.loading ? '#6b7280' : offerStatus.eligible ? '#16a34a' : '#e67e22', fontSize: '0.9rem' }}>
               {offerStatus.loading ? 'Checking First Tiffin FREE eligibility...' : offerStatus.message}
               <br />
             </span>
-            <span style={{ color: '#e67e22', fontSize: '1.5rem', fontWeight: 'bold' }}>Total: ₹{finalTotal}</span>
+            <span style={{ color: finalTotal === 0 ? '#16a34a' : '#e67e22', fontSize: '1.5rem', fontWeight: 'bold' }}>
+              {finalTotal === 0 ? '🎉 Total: ₹0 — FREE!' : `Total: ₹${finalTotal}`}
+            </span>
           </div>
 
           <form className="payment-form" onSubmit={handleSubmit}>
@@ -632,7 +640,7 @@ export default function PaymentPage() {
             </div>
 
             <button className="btn" style={{ width: '100%', marginTop: '1rem', padding: 15, fontSize: '1.1rem', borderRadius: 8 }} disabled={loading}>
-              {loading ? 'Processing…' : payMethod === 'cod' ? `Confirm Order (₹${finalTotal} COD)` : `Pay ₹${finalTotal} Securely`}
+              {loading ? 'Processing…' : finalTotal === 0 ? '🎁 Claim Free Tiffin' : payMethod === 'cod' ? `Confirm Order (₹${finalTotal} COD)` : `Pay ₹${finalTotal} Securely`}
             </button>
             {message && <p style={{ color: 'red', textAlign: 'center', marginTop: '1rem' }}>{message}</p>}
           </form>

@@ -860,19 +860,22 @@ export default function RestaurantDashboard() {
                               {canAssign && expandedAssignOrderId === order._id ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                   <p style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, margin: 0 }}>Choose delivery agent:</p>
-                                  {agents.map((agent) => (
-                                    <button key={agent._id} type="button"
-                                      disabled={assigningOrderId === order._id || agent.status === 'Offline'}
-                                      onClick={() => assignAgent(order._id, agent._id)}
-                                      style={{
-                                        textAlign: 'left', background: C.border, border: `1px solid ${C.border2}`,
-                                        borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#d4d4d8',
-                                        cursor: 'pointer', opacity: agent.status === 'Offline' ? 0.4 : 1,
-                                        fontFamily: "'DM Sans', sans-serif",
-                                      }}>
-                                      {agent.name} <span style={{ color: C.textFaint }}>({agent.currentLoad}/{agent.maxBatchLimit})</span>
-                                    </button>
-                                  ))}
+                                  {agents.map((agent) => {
+                                    const isAssignable = agent.status === 'Available' && agent.currentLoad < agent.maxBatchLimit;
+                                    return (
+                                      <button key={agent._id} type="button"
+                                        disabled={assigningOrderId === order._id || !isAssignable}
+                                        onClick={() => assignAgent(order._id, agent._id)}
+                                        style={{
+                                          textAlign: 'left', background: C.border, border: `1px solid ${C.border2}`,
+                                          borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#d4d4d8',
+                                          cursor: isAssignable ? 'pointer' : 'not-allowed', opacity: isAssignable ? 1 : 0.4,
+                                          fontFamily: "'DM Sans', sans-serif",
+                                        }}>
+                                        {agent.name} <span style={{ color: C.textFaint }}>({agent.currentLoad}/{agent.maxBatchLimit})</span>
+                                      </button>
+                                    );
+                                  })}
                                   <div style={{ display: 'flex', gap: 8 }}>
                                     <button type="button" onClick={() => setExpandedAssignOrderId('')} style={{ flex: 1, background: C.border, border: 'none', color: C.textMuted, fontSize: 12, fontWeight: 600, padding: '8px', borderRadius: 8, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
                                       Cancel

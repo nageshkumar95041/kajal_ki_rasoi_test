@@ -9,6 +9,34 @@ function generateOtp(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
+function normalizeBatchLimit(rawLimit: unknown): number {
+  const parsed = Number(rawLimit);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 1;
+  return Math.floor(parsed);
+}
+
+async function decrementAgentLoad(agentId: string) {
+  await Agent.findByIdAndUpdate(
+    agentId,
+    [
+      {
+        $set: {
+          currentLoad: {
+            $max: [0, { $subtract: [{ $ifNull: ['$currentLoad', 0] }, 1] }],
+          },
+        },
+      },
+      {
+        $set: {
+          status: {
+            $cond: [{ $gt: ['$currentLoad', 0] }, 'Busy', 'Available'],
+          },
+        },
+      },
+    ]
+  );
+}
+
 async function sendOtpToCustomer(order: {
   _id: unknown;
   customerName: string;
@@ -62,16 +90,61 @@ export async function POST(req: NextRequest) {
   const order = await Order.findById(orderId);
   if (!order) return NextResponse.json({ success: false, message: 'Order not found.' }, { status: 404 });
 
+  if (['Completed', 'Rejected', 'Cancelled', 'Failed'].includes(order.status)) {
+    return NextResponse.json({ success: false, message: 'This order can no longer be assigned.' }, { status: 400 });
+  }
+
+  if (order.status !== 'Preparing') {
+    return NextResponse.json(
+      { success: false, message: 'Only accepted (Preparing) orders can be assigned to an agent.' },
+      { status: 400 }
+    );
+  }
+
+  if (order.borzoOrderId && !order.inHouseDelivery) {
+    return NextResponse.json({ success: false, message: 'Borzo delivery is already active for this order.' }, { status: 400 });
+  }
+
   const agent = await Agent.findById(agentId);
   if (!agent) return NextResponse.json({ success: false, message: 'Agent not found.' }, { status: 404 });
 
-  if (agent.currentLoad >= agent.maxBatchLimit) {
-    return NextResponse.json({ success: false, message: `Agent is at max capacity (${agent.maxBatchLimit} orders).` }, { status: 400 });
+  const selectedAgentId = String(agent._id);
+  const previousAgentId = order.agentId ? String(order.agentId) : '';
+  const assigningSameAgent = previousAgentId && previousAgentId === selectedAgentId;
+  const maxBatchLimit = normalizeBatchLimit(agent.maxBatchLimit);
+
+  if (!assigningSameAgent && agent.status !== 'Available') {
+    return NextResponse.json({ success: false, message: 'Only available agents can be assigned.' }, { status: 400 });
+  }
+
+  let assignedAgentName = agent.name;
+  if (!assigningSameAgent) {
+    const reservedAgent = await Agent.findOneAndUpdate(
+      {
+        _id: selectedAgentId,
+        status: 'Available',
+        currentLoad: { $lt: maxBatchLimit },
+      },
+      {
+        $inc: { currentLoad: 1 },
+        $set: { status: 'Busy' },
+      },
+      { new: true }
+    );
+
+    if (!reservedAgent) {
+      return NextResponse.json(
+        { success: false, message: `Agent is unavailable or at max capacity (${maxBatchLimit} orders).` },
+        { status: 400 }
+      );
+    }
+
+    assignedAgentName = reservedAgent.name;
   }
 
   // Unassign from previous agent if any
-  if (order.agentId) {
-    await Agent.findByIdAndUpdate(order.agentId, { $inc: { currentLoad: -1 } });
+  if (previousAgentId && !assigningSameAgent) {
+    await decrementAgentLoad(previousAgentId);
   }
 
   const otp = generateOtp();
@@ -81,16 +154,11 @@ export async function POST(req: NextRequest) {
   order.status = 'Out for Delivery';
   await order.save();
 
-  await Agent.findByIdAndUpdate(agentId, {
-    $inc: { currentLoad: 1 },
-    $set: { status: 'Busy' },
-  });
-
   emitOrderUpdate({
     type: 'AGENT_ASSIGNED',
     orderId: order._id,
     status: 'Out for Delivery',
-    agentName: agent.name,
+    agentName: assignedAgentName,
     deliveryOtp: otp,
   });
 
@@ -98,12 +166,12 @@ export async function POST(req: NextRequest) {
   await sendOtpToCustomer(
     { _id: order._id, customerName: order.customerName, contact: order.contact, userId: order.userId, total: order.total },
     otp,
-    agent.name
+    assignedAgentName
   );
 
   return NextResponse.json({
     success: true,
-    message: `Order assigned to ${agent.name}. OTP: ${otp}`,
+    message: `Order assigned to ${assignedAgentName}. OTP: ${otp}`,
     deliveryOtp: otp,
   });
 }

@@ -17,15 +17,25 @@ export async function POST(req: NextRequest, { params }: { params: { orderId: st
 
   const order = await Order.findById(params.orderId);
   if (!order) return NextResponse.json({ success: false, message: 'Order not found.' }, { status: 404 });
+  if (order.status === 'Completed') {
+    return NextResponse.json({ success: false, message: 'Order is already marked as delivered.' }, { status: 400 });
+  }
+  if (order.status !== 'Out for Delivery') {
+    return NextResponse.json({ success: false, message: 'Only Out for Delivery orders can be completed.' }, { status: 400 });
+  }
 
-  // Look up the agent profile by userId (same as how orders route works)
-  // order.agentId stores Agent._id, NOT User._id — so we must resolve it first
+  const assignedAgentId = order.agentId ? String(order.agentId) : '';
+  if (!assignedAgentId) {
+    return NextResponse.json({ success: false, message: 'No delivery agent is assigned to this order.' }, { status: 400 });
+  }
+
+  // Resolve agent profile by userId and ensure the current agent owns this order.
   if (user.role !== 'admin') {
     const agent = await Agent.findOne({ userId: user.id });
     if (!agent) {
       return NextResponse.json({ success: false, message: 'Agent profile not found. Contact admin.' }, { status: 404 });
     }
-    if (String(order.agentId) !== String(agent._id)) {
+    if (assignedAgentId !== String(agent._id)) {
       return NextResponse.json({ success: false, message: 'Not your order.' }, { status: 403 });
     }
   }
@@ -39,10 +49,25 @@ export async function POST(req: NextRequest, { params }: { params: { orderId: st
   if (podImageUrl) order.podImageUrl = podImageUrl;
   await order.save();
 
-  // Free up agent slot
-  await Agent.findOneAndUpdate(
-    { userId: user.id },
-    { $inc: { currentLoad: -1 }, $set: { status: 'Available' } }
+  // Free up agent slot without allowing negative currentLoad.
+  await Agent.findByIdAndUpdate(
+    assignedAgentId,
+    [
+      {
+        $set: {
+          currentLoad: {
+            $max: [0, { $subtract: [{ $ifNull: ['$currentLoad', 0] }, 1] }],
+          },
+        },
+      },
+      {
+        $set: {
+          status: {
+            $cond: [{ $gt: ['$currentLoad', 0] }, 'Busy', 'Available'],
+          },
+        },
+      },
+    ]
   );
 
   emitOrderUpdate({ type: 'STATUS_UPDATE', orderId: order._id, status: 'Completed' });

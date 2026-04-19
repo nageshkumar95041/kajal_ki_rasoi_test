@@ -245,8 +245,11 @@ describe('POST /api/admin/agents/assign', () => {
     jest.resetModules();
     jest.mock('@/lib/mongodb', () => ({ connectDB: jest.fn() }));
     jest.mock('@/lib/models', () => ({
-      Order: { findById: jest.fn().mockResolvedValue({ _id: 'o1', agentId: null, save: jest.fn() }) },
-      Agent: { findById: jest.fn().mockResolvedValue({ currentLoad: 5, maxBatchLimit: 5, name: 'Raju' }) },
+      Order: { findById: jest.fn().mockResolvedValue({ _id: 'o1', agentId: null, status: 'Preparing', save: jest.fn() }) },
+      Agent: {
+        findById: jest.fn().mockResolvedValue({ _id: 'a1', currentLoad: 5, maxBatchLimit: 5, status: 'Available', name: 'Raju' }),
+        findOneAndUpdate: jest.fn().mockResolvedValue(null),
+      },
       User: {},
     }));
     jest.mock('@/lib/socket', () => ({ emitOrderUpdate: jest.fn() }));
@@ -259,11 +262,12 @@ describe('POST /api/admin/agents/assign', () => {
   it('assigns agent to order and returns 200', async () => {
     jest.resetModules();
     jest.mock('@/lib/mongodb', () => ({ connectDB: jest.fn() }));
-    const orderMock = { _id: 'o1', agentId: null, status:'' ,customerName: 'Kajal', contact: 'kajal@test.com', userId: null, total: 200, save: jest.fn() };
+    const orderMock = { _id: 'o1', agentId: null, status: 'Preparing', customerName: 'Kajal', contact: 'kajal@test.com', userId: null, total: 200, save: jest.fn() };
     jest.mock('@/lib/models', () => ({
       Order: { findById: jest.fn().mockResolvedValue(orderMock) },
       Agent: {
-        findById: jest.fn().mockResolvedValue({ _id: 'a1', name: 'Raju', currentLoad: 0, maxBatchLimit: 5 }),
+        findById: jest.fn().mockResolvedValue({ _id: 'a1', name: 'Raju', status: 'Available', currentLoad: 0, maxBatchLimit: 5 }),
+        findOneAndUpdate: jest.fn().mockResolvedValue({ _id: 'a1', name: 'Raju', status: 'Busy', currentLoad: 1, maxBatchLimit: 5 }),
         findByIdAndUpdate: jest.fn().mockResolvedValue(undefined),
       },
       User: { findById: jest.fn().mockResolvedValue(null) },
@@ -703,7 +707,7 @@ describe('POST /api/agent/deliver/[orderId]', () => {
     jest.mock('@/lib/mongodb', () => ({ connectDB: jest.fn() }));
     jest.mock('@/lib/models', () => ({
       Order: { findById: jest.fn().mockResolvedValue({ agentId: 'a1', deliveryOtp: '5678', status: 'Out for Delivery', save: jest.fn() }) },
-      Agent: { findOne: jest.fn().mockResolvedValue({ _id: 'a1' }), findOneAndUpdate: jest.fn() },
+      Agent: { findOne: jest.fn().mockResolvedValue({ _id: 'a1' }), findByIdAndUpdate: jest.fn() },
     }));
     jest.mock('@/lib/socket', () => ({ emitOrderUpdate: jest.fn() }));
     const { POST } = await import('@/app/api/agent/deliver/[orderId]/route');
@@ -719,7 +723,7 @@ describe('POST /api/agent/deliver/[orderId]', () => {
       Order: { findById: jest.fn().mockResolvedValue(orderMock) },
       Agent: {
         findOne: jest.fn().mockResolvedValue({ _id: 'a1' }),
-        findOneAndUpdate: jest.fn().mockResolvedValue(undefined),
+        findByIdAndUpdate: jest.fn().mockResolvedValue(undefined),
       },
     }));
     jest.mock('@/lib/socket', () => ({ emitOrderUpdate: jest.fn() }));

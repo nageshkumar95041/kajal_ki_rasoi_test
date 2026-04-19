@@ -9,6 +9,34 @@ function generateOtp(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
+function normalizeBatchLimit(rawLimit: unknown): number {
+  const parsed = Number(rawLimit);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 1;
+  return Math.floor(parsed);
+}
+
+async function decrementAgentLoad(agentId: string) {
+  await Agent.findByIdAndUpdate(
+    agentId,
+    [
+      {
+        $set: {
+          currentLoad: {
+            $max: [0, { $subtract: [{ $ifNull: ['$currentLoad', 0] }, 1] }],
+          },
+        },
+      },
+      {
+        $set: {
+          status: {
+            $cond: [{ $gt: ['$currentLoad', 0] }, 'Busy', 'Available'],
+          },
+        },
+      },
+    ]
+  );
+}
+
 async function sendOtpToCustomer(
   order: {
     _id: unknown;
@@ -114,16 +142,46 @@ export async function POST(req: NextRequest) {
   const selectedAgentId = String(agent._id);
   const previousAgentId = order.agentId ? String(order.agentId) : '';
   const assigningSameAgent = previousAgentId && previousAgentId === selectedAgentId;
+  const maxBatchLimit = normalizeBatchLimit(agent.maxBatchLimit);
 
-  if (!assigningSameAgent && agent.currentLoad >= agent.maxBatchLimit) {
+  if (!assigningSameAgent && agent.status !== 'Available') {
+    return NextResponse.json({ success: false, message: 'Only available agents can be assigned.' }, { status: 400 });
+  }
+
+  if (!assigningSameAgent && agent.currentLoad >= maxBatchLimit) {
     return NextResponse.json(
-      { success: false, message: `Agent is at max capacity (${agent.maxBatchLimit} orders).` },
+      { success: false, message: `Agent is at max capacity (${maxBatchLimit} orders).` },
       { status: 400 }
     );
   }
 
+  let assignedAgentName = agent.name;
+  if (!assigningSameAgent) {
+    const reservedAgent = await Agent.findOneAndUpdate(
+      {
+        _id: selectedAgentId,
+        status: 'Available',
+        currentLoad: { $lt: maxBatchLimit },
+      },
+      {
+        $inc: { currentLoad: 1 },
+        $set: { status: 'Busy' },
+      },
+      { new: true }
+    );
+
+    if (!reservedAgent) {
+      return NextResponse.json(
+        { success: false, message: `Agent is unavailable or at max capacity (${maxBatchLimit} orders).` },
+        { status: 400 }
+      );
+    }
+
+    assignedAgentName = reservedAgent.name;
+  }
+
   if (previousAgentId && !assigningSameAgent) {
-    await Agent.findByIdAndUpdate(previousAgentId, { $inc: { currentLoad: -1 } });
+    await decrementAgentLoad(previousAgentId);
   }
 
   const otp = generateOtp();
@@ -133,18 +191,11 @@ export async function POST(req: NextRequest) {
   order.status = 'Out for Delivery';
   await order.save();
 
-  if (!assigningSameAgent) {
-    await Agent.findByIdAndUpdate(selectedAgentId, {
-      $inc: { currentLoad: 1 },
-      $set: { status: 'Busy' },
-    });
-  }
-
   emitOrderUpdate({
     type: 'AGENT_ASSIGNED',
     orderId: order._id,
     status: 'Out for Delivery',
-    agentName: agent.name,
+    agentName: assignedAgentName,
     deliveryOtp: otp,
   });
 
@@ -157,7 +208,7 @@ export async function POST(req: NextRequest) {
       total: order.total,
     },
     otp,
-    agent.name
+    assignedAgentName
   );
 
   const updatedOrder = await Order.findById(order._id)
@@ -166,7 +217,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    message: `Order assigned to ${agent.name}. OTP sent to customer.`,
+    message: `Order assigned to ${assignedAgentName}. OTP sent to customer.`,
     deliveryOtp: otp,
     order: updatedOrder,
   });

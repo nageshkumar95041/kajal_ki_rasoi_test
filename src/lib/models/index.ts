@@ -138,7 +138,7 @@ const agentSchema = new Schema({
   phone: { type: String },
   status: { type: String, default: 'Offline', enum: ['Available', 'Busy', 'Offline'] },
   currentLoad: { type: Number, default: 0 },
-  maxBatchLimit: { type: Number, default: 1000 },
+  maxBatchLimit: { type: Number, default: 5 },
   location: {
     type: { type: String, default: 'Point' },
     coordinates: { type: [Number], default: [0, 0] },

@@ -996,16 +996,20 @@ export default function AdminPage() {
                             <div style={{display:'flex',flexDirection:'column',gap:8}}>
                               <p style={{margin:0,fontSize:13,fontWeight:600,color:'var(--admin-text-main)'}}>Select agent:</p>
                               <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                                {agents.map(agent=>(
-                                  <button key={agent._id} style={{padding:'6px 12px',borderRadius:8,border:'1.5px solid #f97316',background:'var(--admin-bg)',color:'var(--admin-text-main)',cursor:'pointer',fontSize:13,fontWeight:500}}
-                                    onClick={async()=>{
-                                      const d=await api('/api/admin/agents/assign',{method:'POST',body:JSON.stringify({orderId:order._id,agentId:agent._id})});
-                                      if(d.success){setAssignResult({orderId:order._id,otp:d.deliveryOtp});setAssigningOrder(null);loadTab('delivery');}
-                                      else alert(d.message||'Failed.');
-                                    }}>
-                                    {agent.name} ({agent.currentLoad}/{agent.maxBatchLimit})
-                                  </button>
-                                ))}
+                                {agents.map(agent=>{
+                                  const isAssignable = agent.status === 'Available' && agent.currentLoad < agent.maxBatchLimit;
+                                  return (
+                                    <button key={agent._id} disabled={!isAssignable}
+                                      style={{padding:'6px 12px',borderRadius:8,border:'1.5px solid #f97316',background:'var(--admin-bg)',color:'var(--admin-text-main)',cursor:isAssignable?'pointer':'not-allowed',opacity:isAssignable?1:0.5,fontSize:13,fontWeight:500}}
+                                      onClick={async()=>{
+                                        const d=await api('/api/admin/agents/assign',{method:'POST',body:JSON.stringify({orderId:order._id,agentId:agent._id})});
+                                        if(d.success){setAssignResult({orderId:order._id,otp:d.deliveryOtp});setAssigningOrder(null);loadTab('delivery');}
+                                        else alert(d.message||'Failed.');
+                                      }}>
+                                      {agent.name} ({agent.currentLoad}/{agent.maxBatchLimit})
+                                    </button>
+                                  );
+                                })}
                                 {agents.length===0&&<p style={{color:'#ef4444',fontSize:13}}>No agents available.</p>}
                               </div>
                               <div style={{display:'flex',gap:6}}>

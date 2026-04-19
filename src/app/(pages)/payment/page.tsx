@@ -84,6 +84,12 @@ export default function PaymentPage() {
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>('');
   // true when user has saved phone + address — show compact summary, hide full form
   const [quickCheckout, setQuickCheckout]         = useState(false);
+  const [offerStatus, setOfferStatus]             = useState({
+    loading: true,
+    eligible: false,
+    message: 'Checking offer eligibility...',
+    discount: 0,
+  });
 
   const debounceRef   = useRef<NodeJS.Timeout | null>(null);
   const geocoderRef   = useRef<any>(null);
@@ -95,6 +101,7 @@ export default function PaymentPage() {
     const c = getCart();
     if (!c.length) { router.replace('/cart'); return; }
     setCart(c);
+    checkOfferEligibility(c);
     const restaurantId = getCartRestaurantId();
     if (restaurantId) setSelectedRestaurantId(restaurantId);
 
@@ -161,6 +168,54 @@ export default function PaymentPage() {
     document.addEventListener('click', h);
     return () => document.removeEventListener('click', h);
   }, []);
+
+  async function checkOfferEligibility(itemsToCheck: CartItem[]) {
+    if (!itemsToCheck.length) {
+      setOfferStatus({
+        loading: false,
+        eligible: false,
+        message: 'Add a tiffin item to unlock First Tiffin FREE.',
+        discount: 0,
+      });
+      return;
+    }
+
+    setOfferStatus(prev => ({ ...prev, loading: true }));
+    const token = getAuthToken();
+    try {
+      const res = await fetch('/api/offers/first-tiffin-eligibility', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ items: itemsToCheck }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setOfferStatus({
+          loading: false,
+          eligible: false,
+          message: 'Unable to check offer status right now.',
+          discount: 0,
+        });
+        return;
+      }
+      setOfferStatus({
+        loading: false,
+        eligible: !!data.eligible,
+        message: typeof data.message === 'string' ? data.message : 'Offer status unavailable.',
+        discount: Number(data.offerDiscount || 0),
+      });
+    } catch {
+      setOfferStatus({
+        loading: false,
+        eligible: false,
+        message: 'Unable to check offer status right now.',
+        discount: 0,
+      });
+    }
+  }
 
   async function getSuggestions(input: string) {
     if (!input || input.trim().length < 3 || !mapsReady) { setSuggestions([]); return; }
@@ -331,6 +386,10 @@ export default function PaymentPage() {
     const base = window.location.origin;
     const res  = await fetch('/api/create-stripe-checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' }, body: JSON.stringify({ ...payload, successUrl: `${base}/my-orders?session_id={CHECKOUT_SESSION_ID}`, cancelUrl: `${base}/payment` }) });
     const data = await res.json();
+    if (data.freeOrder && data.success) {
+      localStorage.removeItem('cart'); window.dispatchEvent(new Event('cartUpdated')); router.push('/my-orders');
+      return;
+    }
     if (data.url) {
       if (isLoggedIn && !selectedAddrId && flat && area && city && pincode) {
         const u2 = getLoggedInUser();
@@ -359,6 +418,10 @@ export default function PaymentPage() {
             <strong>{cart.reduce((s, i) => s + (i.quantity || 1), 0)} Item(s)</strong> | Subtotal: ₹{subtotal}<br />
             {discount > 0 && <span style={{ color: '#27ae60' }}>Discount: -₹{discount}<br /></span>}
             <span style={{ color: '#27ae60' }}>Delivery: FREE 🚴<br /></span>
+            <span style={{ color: offerStatus.loading ? '#6b7280' : offerStatus.eligible ? '#16a34a' : '#e67e22', fontSize: '0.9rem' }}>
+              {offerStatus.loading ? 'Checking First Tiffin FREE eligibility...' : offerStatus.message}
+              <br />
+            </span>
             <span style={{ color: '#e67e22', fontSize: '1.5rem', fontWeight: 'bold' }}>Total: ₹{finalTotal}</span>
           </div>
 

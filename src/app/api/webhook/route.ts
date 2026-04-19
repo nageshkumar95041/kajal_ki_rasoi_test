@@ -41,6 +41,9 @@ export async function POST(req: NextRequest) {
         address: tempCart.address, items: tempCart.cart.items,
         total: tempCart.cart.total, deliveryFee: tempCart.deliveryFee,
         customerLat: tempCart.customerLat, customerLng: tempCart.customerLng,
+        newCustomerOfferApplied: tempCart.newCustomerOfferApplied,
+        newCustomerOfferDiscount: tempCart.newCustomerOfferDiscount,
+        newCustomerOfferItemName: tempCart.newCustomerOfferItemName,
         paymentMethod: 'Online',
       });
       if (tempCart.contact?.includes('@')) {

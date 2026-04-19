@@ -7,6 +7,7 @@ import { validateEmail, validatePhone, validateString } from '@/lib/validation';
 import { emitOrderUpdate } from '@/lib/socket';
 import { createBorzoDelivery } from '@/lib/borzo';
 import {
+  applyFirstTiffinFreeOffer,
   applyApna50Coupon,
   normalizeCartItems,
   normalizeCoordinate,
@@ -90,7 +91,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid or unavailable cart items.' }, { status: 400 });
   }
 
-  const coupon = applyApna50Coupon(pricedCart.subtotal, couponCode);
+  const priorOrderCount = await Order.countDocuments({
+    userId: user.id,
+    status: { $ne: 'Failed' },
+  });
+  const isNewCustomer = priorOrderCount === 0;
+  const firstTiffinOffer = applyFirstTiffinFreeOffer({
+    items: pricedCart.items,
+    subtotal: pricedCart.subtotal,
+    tiffinItemNames: tiffinOnly.map((item: any) => item.name),
+    isNewCustomer,
+  });
+
+  const coupon = applyApna50Coupon(firstTiffinOffer.discountedSubtotal, couponCode);
   const total = coupon.finalTotal;
   const safeDeliveryFee = 0;
 
@@ -107,6 +120,9 @@ export async function POST(req: NextRequest) {
     customerLat: normalizeCoordinate(customerLat),
     customerLng: normalizeCoordinate(customerLng),
     paymentMethod: 'COD',
+    newCustomerOfferApplied: firstTiffinOffer.applied,
+    newCustomerOfferDiscount: firstTiffinOffer.discount,
+    newCustomerOfferItemName: firstTiffinOffer.itemName || undefined,
   });
 
   // Create notification for customer
@@ -138,5 +154,10 @@ export async function POST(req: NextRequest) {
 
   emitOrderUpdate({ type: 'NEW_ORDER' });
   await createBorzoDelivery(newOrder);
-  return NextResponse.json({ success: true, orderId: newOrder._id });
+  return NextResponse.json({
+    success: true,
+    orderId: newOrder._id,
+    newCustomerOfferApplied: firstTiffinOffer.applied,
+    newCustomerOfferDiscount: firstTiffinOffer.discount,
+  });
 }

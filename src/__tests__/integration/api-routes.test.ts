@@ -617,4 +617,42 @@ describe('POST /api/checkout-cod', () => {
     // 250 - 50 coupon = 200
     expect(capturedTotal).toBe(200);
   });
+
+  it('applies first tiffin free offer for new customers', async () => {
+    jest.resetModules();
+    jest.mock('@/lib/mongodb', () => ({ connectDB: jest.fn() }));
+    let capturedTotal = -1;
+    let capturedOfferApplied = false;
+    let capturedOfferDiscount = 0;
+    jest.mock('@/lib/models', () => ({
+      SiteSettings: { findOne: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue(null) }) },
+      MenuItem:   { find: jest.fn().mockResolvedValue([]) },
+      TiffinItem: { find: jest.fn().mockResolvedValue([{ name: 'Mini Tiffin', price: 80 }]) },
+      Order: {
+        create: jest.fn().mockImplementation(async (data: { total: number; newCustomerOfferApplied: boolean; newCustomerOfferDiscount: number }) => {
+          capturedTotal = data.total;
+          capturedOfferApplied = data.newCustomerOfferApplied;
+          capturedOfferDiscount = data.newCustomerOfferDiscount;
+          return { _id: 'o2' };
+        }),
+        countDocuments: jest.fn().mockResolvedValue(0),
+      },
+      User: { findById: jest.fn().mockResolvedValue({ isTrusted: true }) },
+    }));
+    jest.mock('@/lib/socket', () => ({ emitOrderUpdate: jest.fn() }));
+    jest.mock('@/lib/borzo',  () => ({ createBorzoDelivery: jest.fn().mockResolvedValue(undefined) }));
+    const { POST } = await import('@/app/api/checkout-cod/route');
+    const res = await POST(authedRequest(URL, 'user', 'POST', {
+      items: [{ name: 'Mini Tiffin', quantity: 1 }],
+      customerName: 'Kajal', contact: 'kajal@test.com', phone: '9876543210',
+      address: '123 Test St',
+    }));
+    expect(res.status).toBe(200);
+    expect(capturedTotal).toBe(0);
+    expect(capturedOfferApplied).toBe(true);
+    expect(capturedOfferDiscount).toBe(80);
+    const body = await res.json();
+    expect(body.newCustomerOfferApplied).toBe(true);
+    expect(body.newCustomerOfferDiscount).toBe(80);
+  });
 });

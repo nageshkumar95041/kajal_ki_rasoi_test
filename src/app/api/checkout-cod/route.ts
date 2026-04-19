@@ -95,7 +95,12 @@ export async function POST(req: NextRequest) {
     userId: user.id,
     status: { $ne: 'Failed' },
   });
-  const isNewCustomer = priorOrderCount === 0;
+
+  // Check if admin has disabled the First Tiffin FREE offer
+  const offerSetting = await SiteSettings.findOne({ key: 'firstTiffinEnabled' }).lean() as unknown as { value: any } | null;
+  const offerActive = offerSetting === null || offerSetting.value === null || offerSetting.value === true || offerSetting.value === 'true';
+
+  const isNewCustomer = priorOrderCount === 0 && offerActive;
   const firstTiffinOffer = applyFirstTiffinFreeOffer({
     items: pricedCart.items,
     subtotal: pricedCart.subtotal,

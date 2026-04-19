@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
-import { Order, TiffinItem } from '@/lib/models';
+import { Order, TiffinItem, SiteSettings } from '@/lib/models';
 import { optionalAuth } from '@/lib/auth';
 import { normalizeCartItems } from '@/lib/payment';
 
@@ -39,6 +39,21 @@ export async function POST(req: NextRequest) {
   }
 
   await connectDB();
+
+  // Check if admin has disabled the offer
+  const offerSetting = await SiteSettings.findOne({ key: 'firstTiffinEnabled' }).lean() as unknown as { value: any } | null;
+  const offerActive = offerSetting === null || offerSetting.value === null || offerSetting.value === true || offerSetting.value === 'true';
+  if (!offerActive) {
+    return NextResponse.json(
+      responsePayload({
+        eligible: false,
+        reason: 'already_used',
+        message: 'First Tiffin FREE offer is not currently active.',
+        isNewCustomer: false,
+        hasTiffinInCart: false,
+      })
+    );
+  }
   const itemNames = normalizedItems.map((item) => item.name);
   const tiffinItems = await TiffinItem.find({ name: { $in: itemNames } });
   const tiffinPriceMap = new Map<string, number>(

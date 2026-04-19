@@ -223,6 +223,8 @@ export default function AdminPage() {
   const isPlayingRef = useRef(false);
   const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(false);
   const [paymentToggleLoading, setPaymentToggleLoading] = useState(false);
+  const [firstTiffinEnabled, setFirstTiffinEnabled]     = useState(true);
+  const [firstTiffinToggleLoading, setFirstTiffinToggleLoading] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('adminTheme');
@@ -271,6 +273,18 @@ export default function AdminPage() {
           .then(d => setOnlinePaymentEnabled(!!d.onlinePaymentEnabled))
           .catch(() => {});
       });
+
+    // Load firstTiffinEnabled from DB (defaults to true if never set)
+    fetch('/api/admin/settings?key=firstTiffinEnabled', {
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then(r => r.json())
+      .then(d => {
+        // null means never set → treat as enabled (true)
+        const enabled = d.value === null ? true : d.value === true || d.value === 'true';
+        setFirstTiffinEnabled(enabled);
+      })
+      .catch(() => {});
   }, []);
 
   async function toggleOnlinePayment() {
@@ -301,6 +315,33 @@ export default function AdminPage() {
       window.showSystemToast?.('Network error', 'Could not reach server. Try again.', 'error');
     }
     setPaymentToggleLoading(false);
+  }
+
+  async function toggleFirstTiffin() {
+    setFirstTiffinToggleLoading(true);
+    const newVal = !firstTiffinEnabled;
+    try {
+      const authToken = localStorage.getItem('authToken');
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ key: 'firstTiffinEnabled', value: newVal }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFirstTiffinEnabled(newVal);
+        window.showSystemToast?.(
+          newVal ? 'First Tiffin FREE Enabled' : 'First Tiffin FREE Disabled',
+          newVal ? 'New customers will see the free tiffin offer at checkout.' : 'The free tiffin offer is now hidden from all customers.',
+          newVal ? 'success' : 'info'
+        );
+      } else {
+        window.showSystemToast?.('Failed to update', data.error || 'Unknown error', 'error');
+      }
+    } catch {
+      window.showSystemToast?.('Network error', 'Could not reach server. Try again.', 'error');
+    }
+    setFirstTiffinToggleLoading(false);
   }
 
   function toggleTheme() {
@@ -486,6 +527,45 @@ export default function AdminPage() {
                   }}
                 >
                   {paymentToggleLoading ? '⏳ Saving…' : onlinePaymentEnabled ? '🔴 Disable Online Pay' : '🟢 Enable Online Pay'}
+                </button>
+              </div>
+
+              {/* ── First Tiffin FREE Offer Control ── */}
+              <div style={{
+                background: firstTiffinEnabled ? 'var(--admin-sidebar)' : '#1c1917',
+                border: `1.5px solid ${firstTiffinEnabled ? '#f97316' : '#52525b'}`,
+                borderRadius: 12, padding: '16px 20px', marginBottom: '1.5rem',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: 28 }}>{firstTiffinEnabled ? '🎁' : '🚫'}</span>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--admin-text-main)' }}>
+                      First Tiffin FREE Offer:{' '}
+                      <span style={{ color: firstTiffinEnabled ? '#f97316' : '#71717a' }}>
+                        {firstTiffinEnabled ? 'Active' : 'Disabled'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', marginTop: 3 }}>
+                      {firstTiffinEnabled
+                        ? 'New customers get their first tiffin free at checkout'
+                        : 'Offer is hidden — all customers pay full price'}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={toggleFirstTiffin}
+                  disabled={firstTiffinToggleLoading}
+                  style={{
+                    padding: '10px 22px', borderRadius: 8, border: 'none',
+                    cursor: firstTiffinToggleLoading ? 'not-allowed' : 'pointer',
+                    fontWeight: 700, fontSize: 14, flexShrink: 0,
+                    background: firstTiffinEnabled ? '#ef4444' : '#f97316',
+                    color: 'white', opacity: firstTiffinToggleLoading ? 0.6 : 1,
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {firstTiffinToggleLoading ? '⏳ Saving…' : firstTiffinEnabled ? '🔴 Disable Offer' : '🟢 Enable Offer'}
                 </button>
               </div>
 

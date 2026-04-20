@@ -28,7 +28,23 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+    fetch(event.request)
+      .then((response) => {
+        if (response && response.status === 200) {
+          return response;
+        }
+        return caches.match(event.request).then((cached) => cached || response);
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cached) => {
+          if (cached) return cached;
+          return new Response('Offline - page not available', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: new Headers({ 'Content-Type': 'text/plain' }),
+          });
+        });
+      })
   );
 });
 

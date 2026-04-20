@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   }
 
   const payload = { title, body, url: url || '/', tag: tag || 'kkr-push' };
-  const expiredEndpoints = await sendPushToMany(subs as PushSub[], payload);
+  const expiredEndpoints = await sendPushToMany(subs as unknown as PushSub[], payload);
 
   // Clean up expired subscriptions
   if (expiredEndpoints.length > 0) {

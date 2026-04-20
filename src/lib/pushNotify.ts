@@ -14,7 +14,7 @@ export async function notifyUser(userId: string, payload: PushPayload) {
   try {
     const subs = await PushSubscription.find({ userId }).lean();
     if (!subs.length) return;
-    const expired = await sendPushToMany(subs as PushSub[], payload);
+    const expired = await sendPushToMany(subs as unknown as PushSub[], payload);
     if (expired.length) await PushSubscription.deleteMany({ endpoint: { $in: expired } });
   } catch (err) {
     console.error('[pushNotify] notifyUser error:', err);
@@ -29,7 +29,7 @@ export async function notifyRole(role: string, payload: PushPayload) {
   try {
     const subs = await PushSubscription.find({ role }).lean();
     if (!subs.length) return;
-    const expired = await sendPushToMany(subs as PushSub[], payload);
+    const expired = await sendPushToMany(subs as unknown as PushSub[], payload);
     if (expired.length) await PushSubscription.deleteMany({ endpoint: { $in: expired } });
   } catch (err) {
     console.error('[pushNotify] notifyRole error:', err);

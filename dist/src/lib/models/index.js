@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Notification = exports.Restaurant = exports.SiteSettings = exports.Agent = exports.TiffinItem = exports.MenuItem = exports.TempSubscription = exports.TempCart = exports.Subscription = exports.Order = exports.User = void 0;
+exports.PushSubscription = exports.Notification = exports.Restaurant = exports.SiteSettings = exports.Agent = exports.TiffinItem = exports.MenuItem = exports.TempSubscription = exports.TempCart = exports.Subscription = exports.Order = exports.User = void 0;
 const mongoose_1 = require("mongoose");
 // ─── User ─────────────────────────────────────────────────────────────────────
 const userSchema = new mongoose_1.Schema({
@@ -26,6 +26,9 @@ const orderSchema = new mongoose_1.Schema({
     address: { type: String, required: true },
     items: { type: Array, required: true },
     total: { type: Number, required: true },
+    newCustomerOfferApplied: { type: Boolean, default: false },
+    newCustomerOfferDiscount: { type: Number, default: 0 },
+    newCustomerOfferItemName: { type: String },
     paymentMethod: { type: String, default: 'Online', enum: ['Online', 'COD'] },
     status: {
         type: String, default: 'Pending',
@@ -78,6 +81,9 @@ const cartSchema = new mongoose_1.Schema({
     phone: { type: String },
     address: { type: String, required: true },
     cart: { type: Object, required: true },
+    newCustomerOfferApplied: { type: Boolean, default: false },
+    newCustomerOfferDiscount: { type: Number, default: 0 },
+    newCustomerOfferItemName: { type: String },
     deliveryFee: { type: Number, default: 0 },
     customerLat: { type: Number },
     customerLng: { type: Number },
@@ -126,7 +132,7 @@ const agentSchema = new mongoose_1.Schema({
     phone: { type: String },
     status: { type: String, default: 'Offline', enum: ['Available', 'Busy', 'Offline'] },
     currentLoad: { type: Number, default: 0 },
-    maxBatchLimit: { type: Number, default: 1000 },
+    maxBatchLimit: { type: Number, default: 5 },
     location: {
         type: { type: String, default: 'Point' },
         coordinates: { type: [Number], default: [0, 0] },
@@ -179,3 +185,15 @@ const notificationSchema = new mongoose_1.Schema({
     createdAt: { type: Date, default: Date.now, index: true },
 });
 exports.Notification = mongoose_1.models.Notification || (0, mongoose_1.model)('Notification', notificationSchema);
+// ─── PushSubscription ─────────────────────────────────────────────────────────
+// Stores Web Push subscriptions per user for locked-screen notifications
+const pushSubscriptionSchema = new mongoose_1.Schema({
+    userId: { type: String, required: true, index: true },
+    role: { type: String, enum: ['user', 'agent', 'restaurant', 'admin'], default: 'user' },
+    endpoint: { type: String, required: true, unique: true },
+    keys: {
+        p256dh: { type: String, required: true },
+        auth: { type: String, required: true },
+    },
+}, { timestamps: true });
+exports.PushSubscription = mongoose_1.models.PushSubscription || (0, mongoose_1.model)('PushSubscription', pushSubscriptionSchema);

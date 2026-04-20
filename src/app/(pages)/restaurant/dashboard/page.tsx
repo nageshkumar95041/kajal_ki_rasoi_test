@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { usePushSubscription } from '@/lib/usePushSubscription';
 import { useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import ToastInit from '@/components/Toast';
@@ -172,6 +173,72 @@ export default function RestaurantDashboard() {
   const [expandedAssignOrderId, setExpandedAssignOrderId] = useState('');
   const [dispatchingOrderId, setDispatchingOrderId] = useState('');
   const [deliveryResult, setDeliveryResult] = useState<{ orderId: string; otp: string } | null>(null);
+  // Auto-subscribe restaurant owner to push notifications (locked screen alerts)
+  const [dashToken, setDashToken] = useState<string | null>(null);
+  useEffect(() => { setDashToken(getRestaurantToken()); }, []);
+  usePushSubscription(dashToken);
+
+  // ── Audio + notification system (AudioContext — more reliable than new Audio) ──
+  const audioCtxRef         = useRef<AudioContext | null>(null);
+  const audioBufferRef      = useRef<AudioBuffer | null>(null);
+  const isPlayingRef        = useRef(false);
+  const prevOrderCountRef   = useRef(0);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('restaurantSound') !== 'false';
+  });
+
+  // Pre-load audio buffer on first user interaction
+  const initAudio = useCallback(async () => {
+    if (audioCtxRef.current) return; // already initialised
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      audioCtxRef.current = ctx;
+      const res = await fetch('/sound/order_alert.mp3');
+      const buf = await res.arrayBuffer();
+      audioBufferRef.current = await ctx.decodeAudioData(buf);
+    } catch {}
+  }, []);
+
+  const playAlert = useCallback(async () => {
+    if (!soundEnabled) return;
+    try {
+      // initialise on first play attempt if not done yet
+      if (!audioCtxRef.current) await initAudio();
+      if (!audioCtxRef.current || !audioBufferRef.current) return;
+      if (isPlayingRef.current) return;
+      // Resume context if browser suspended it
+      if (audioCtxRef.current.state === 'suspended') {
+        await audioCtxRef.current.resume();
+      }
+      isPlayingRef.current = true;
+      const source = audioCtxRef.current.createBufferSource();
+      source.buffer = audioBufferRef.current;
+      source.connect(audioCtxRef.current.destination);
+      source.onended = () => { isPlayingRef.current = false; };
+      source.start(0);
+    } catch {
+      isPlayingRef.current = false;
+    }
+  }, [soundEnabled, initAudio]);
+
+  useEffect(() => {
+    // Pre-load audio on first interaction so it's ready instantly
+    const handle = () => { initAudio(); };
+    document.addEventListener('click',      handle, { once: true });
+    document.addEventListener('touchstart', handle, { once: true });
+    document.addEventListener('keydown',    handle, { once: true });
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    return () => {
+      document.removeEventListener('click',      handle);
+      document.removeEventListener('touchstart', handle);
+      document.removeEventListener('keydown',    handle);
+    };
+  }, [initAudio]);
   const [menuForm, setMenuForm] = useState({
     name: '',
     price: '',
@@ -190,6 +257,51 @@ export default function RestaurantDashboard() {
       setActiveTab(tab);
     }
   }, [searchParams]);
+
+  // ── Poll for new orders every 20s and alert restaurant owner ─────────────
+  const pollOrders = useCallback(async () => {
+    const token = getRestaurantToken();
+    if (!token) return;
+    try {
+      const res = await fetch('/api/my-restaurant/orders?status=all&limit=100', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const incoming: Order[] = Array.isArray(data) ? data : [];
+      const newCount = incoming.filter(o => o.status === 'Pending').length;
+      const isNewOrder = newCount > prevOrderCountRef.current;
+      prevOrderCountRef.current = newCount;
+      setOrders(incoming);
+
+      if (isNewOrder) {
+        // 🔊 Play sound alert via AudioContext
+        await playAlert();
+        // 📳 Vibrate
+        if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]);
+        // 🔔 Browser notification (when tab is in background)
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          new Notification('🍱 New Order!', {
+            body: `You have ${newCount} pending order${newCount > 1 ? 's' : ''}. Open dashboard to accept.`,
+            icon: '/icons/icon-192.png',
+            tag: 'new-restaurant-order',
+          });
+        }
+        // Update tab title
+        document.title = `(${newCount}) New Order — Dashboard`;
+      } else if (newCount === 0) {
+        document.title = 'Restaurant Dashboard';
+      }
+    } catch {}
+  }, [soundEnabled, playAlert]);
+
+  useEffect(() => {
+    const interval = setInterval(pollOrders, 20000);
+    return () => {
+      clearInterval(interval);
+      document.title = 'Restaurant Dashboard';
+    };
+  }, [pollOrders]);
 
   const updateOrdersState = (updatedOrder: Order) => {
     setOrders((current) => current.map((o) => (o._id === updatedOrder._id ? { ...o, ...updatedOrder } : o)));
@@ -235,7 +347,10 @@ export default function RestaurantDashboard() {
         restaurantRes.json(), ordersRes.json(), menuRes.json(), deliveryRes.json(),
       ]);
       setRestaurant(restaurantData);
-      setOrders(ordersData);
+      const incoming: Order[] = Array.isArray(ordersData) ? ordersData : [];
+      setOrders(incoming);
+      // Set initial pending count so first poll doesn't false-alarm
+      prevOrderCountRef.current = incoming.filter((o: Order) => o.status === 'Pending').length;
       setMenuItems(menuData);
       setDeliveryOrders(Array.isArray(deliveryData.orders) ? deliveryData.orders : []);
       setAgents(Array.isArray(deliveryData.agents) ? deliveryData.agents : []);
@@ -547,6 +662,22 @@ export default function RestaurantDashboard() {
                   animation: restaurant.isOpen !== false ? 'pulse 2s infinite' : 'none',
                 }} />
                 {togglingOpen ? 'Updating...' : (restaurant.isOpen === false ? '● Closed — tap to open' : '● Open for orders — tap to close')}
+              </button>
+              {/* Sound toggle */}
+              <button
+                onClick={() => setSoundEnabled(s => {
+                  const next = !s;
+                  localStorage.setItem('restaurantSound', String(next));
+                  return next;
+                })}
+                style={{
+                  marginTop: 8, padding: '6px 14px', borderRadius: 8,
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  background: 'rgba(255,255,255,0.1)', color: '#fff',
+                  cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                }}
+              >
+                {soundEnabled ? '🔔 Alert Sound On' : '🔕 Alert Sound Off'}
               </button>
             </div>
           </div>

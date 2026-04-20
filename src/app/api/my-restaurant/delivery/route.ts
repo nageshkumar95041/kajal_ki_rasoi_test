@@ -4,6 +4,7 @@ import { Agent, Order, User } from '@/lib/models';
 import { requireRestaurant } from '@/lib/auth';
 import { emitOrderUpdate } from '@/lib/socket';
 import { sendMail } from '@/lib/email';
+import { notifyAgentAssigned } from '@/lib/pushNotify';
 
 function generateOtp(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
@@ -216,6 +217,15 @@ export async function POST(req: NextRequest) {
       },
       otp,
       assignedAgentName
+    );
+  }
+
+  // 🔔 Push notification to agent (works on locked screen)
+  if (agent.userId) {
+    await notifyAgentAssigned(
+      String(agent.userId),
+      String(order._id).slice(-5),
+      order.address || ''
     );
   }
 

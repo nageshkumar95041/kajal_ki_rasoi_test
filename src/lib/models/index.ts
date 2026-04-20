@@ -204,3 +204,17 @@ const notificationSchema = new Schema({
 });
 
 export const Notification: Model<any> = models.Notification || model('Notification', notificationSchema);
+
+// ─── PushSubscription ─────────────────────────────────────────────────────────
+// Stores Web Push subscriptions per user for locked-screen notifications
+const pushSubscriptionSchema = new Schema({
+  userId:   { type: String, required: true, index: true },
+  role:     { type: String, enum: ['user', 'agent', 'restaurant', 'admin'], default: 'user' },
+  endpoint: { type: String, required: true, unique: true },
+  keys: {
+    p256dh: { type: String, required: true },
+    auth:   { type: String, required: true },
+  },
+}, { timestamps: true });
+
+export const PushSubscription: Model<any> = models.PushSubscription || model('PushSubscription', pushSubscriptionSchema);

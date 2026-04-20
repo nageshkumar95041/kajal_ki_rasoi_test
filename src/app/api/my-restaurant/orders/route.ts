@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import { Order, Notification } from '@/lib/models';
 import { requireRestaurant } from '@/lib/auth';
+import { notifyCustomerStatusUpdate } from '@/lib/pushNotify';
 
 export async function GET(req: NextRequest) {
   const auth = await requireRestaurant(req);
@@ -82,6 +83,12 @@ export async function PATCH(req: NextRequest) {
         orderId: order._id,
         restaurantId: auth.restaurant._id,
       });
+      // 🔔 Push to customer locked screen
+      await notifyCustomerStatusUpdate(
+        String(order.userId),
+        String(order._id).slice(-5),
+        status
+      );
     }
     return NextResponse.json({ success: true, order });
   } catch (error) {

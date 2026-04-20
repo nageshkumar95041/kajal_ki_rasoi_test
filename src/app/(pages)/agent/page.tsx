@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { usePushSubscription } from '@/lib/usePushSubscription';
 
 interface OrderItem { name: string; quantity: number; }
 interface AssignedOrder {
@@ -252,6 +253,7 @@ function OrderCard({
 
 export default function AgentPage() {
   const { user, token, loading } = useAuth(true);
+  const { subscribed } = usePushSubscription(token ?? null);
   const [orders, setOrders] = useState<AssignedOrder[]>([]);
   const [agentInfo, setAgentInfo] = useState<AgentInfo | null>(null);
   const [fetching, setFetching] = useState(true);
@@ -453,6 +455,9 @@ export default function AgentPage() {
               Active orders: {agentInfo.currentLoad} / {agentInfo.maxBatchLimit}
             </p>
           )}
+          <p style={{ margin: '8px 0 0', fontSize: 12, color: subscribed ? '#16a34a' : '#9ca3af' }}>
+            {subscribed ? '🔔 Push notifications active' : '🔕 Enabling push notifications…'}
+          </p>
         </div>
 
         {/* Orders header */}
@@ -525,3 +530,4 @@ export default function AgentPage() {
     </div>
   );
 }
+

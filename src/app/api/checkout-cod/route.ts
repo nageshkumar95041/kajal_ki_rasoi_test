@@ -6,6 +6,7 @@ import { rateLimit } from '@/lib/rateLimit';
 import { validateEmail, validatePhone, validateString } from '@/lib/validation';
 import { emitOrderUpdate } from '@/lib/socket';
 import { createBorzoDelivery } from '@/lib/borzo';
+import { notifyRestaurantNewOrder, notifyCustomerStatusUpdate } from '@/lib/pushNotify';
 import {
   applyFirstTiffinFreeOffer,
   applyApna50Coupon,
@@ -154,7 +155,22 @@ export async function POST(req: NextRequest) {
         orderId: newOrder._id,
         restaurantId: restaurantId,
       });
+      // 🔔 Push notification to restaurant owner (works on locked screen)
+      await notifyRestaurantNewOrder(
+        String(restaurant.ownerId),
+        String(newOrder._id).slice(-5),
+        normalizedCustomerName
+      );
     }
+  }
+
+  // 🔔 Push notification to customer confirming their order
+  if (user?.id) {
+    await notifyCustomerStatusUpdate(
+      String(user.id),
+      String(newOrder._id).slice(-5),
+      'placed'
+    );
   }
 
   emitOrderUpdate({ type: 'NEW_ORDER' });

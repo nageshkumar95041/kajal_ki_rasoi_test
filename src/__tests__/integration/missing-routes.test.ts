@@ -209,7 +209,7 @@ describe('GET /api/agent/debug', () => {
       },
     }));
     const { GET } = await import('@/app/api/agent/debug/route');
-    const res = await GET(authedReq(URL, 'agent'));
+    const res = await GET(authedReq(URL, 'admin'));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.jwtUserId).toBe('user-id-123');
@@ -234,7 +234,7 @@ describe('GET /api/agent/debug', () => {
       },
     }));
     const { GET } = await import('@/app/api/agent/debug/route');
-    const res = await GET(authedReq(URL, 'user'));
+    const res = await GET(authedReq(URL, 'admin'));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.agentFound).toBe(false);

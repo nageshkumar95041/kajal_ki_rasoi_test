@@ -30,6 +30,7 @@ describe('POST /api/offers/first-tiffin-eligibility', () => {
     jest.doMock('@/lib/models', () => ({
       TiffinItem: { find: jest.fn() },
       Order: { countDocuments: jest.fn() },
+      SiteSettings: { findOne: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue(null) }) },
     }));
 
     const { POST } = await import('@/app/api/offers/first-tiffin-eligibility/route');
@@ -43,6 +44,7 @@ describe('POST /api/offers/first-tiffin-eligibility', () => {
     jest.doMock('@/lib/models', () => ({
       TiffinItem: { find: jest.fn().mockResolvedValue([{ name: 'Mini Tiffin', price: 80 }]) },
       Order: { countDocuments: jest.fn() },
+      SiteSettings: { findOne: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue(null) }) },
     }));
 
     const { POST } = await import('@/app/api/offers/first-tiffin-eligibility/route');
@@ -63,6 +65,7 @@ describe('POST /api/offers/first-tiffin-eligibility', () => {
     jest.doMock('@/lib/models', () => ({
       TiffinItem: { find: jest.fn().mockResolvedValue([{ name: 'Mini Tiffin', price: 80 }]) },
       Order: { countDocuments: jest.fn().mockResolvedValue(0) },
+      SiteSettings: { findOne: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue(null) }) },
     }));
 
     const { POST } = await import('@/app/api/offers/first-tiffin-eligibility/route');
@@ -83,6 +86,7 @@ describe('POST /api/offers/first-tiffin-eligibility', () => {
     jest.doMock('@/lib/models', () => ({
       TiffinItem: { find: jest.fn().mockResolvedValue([{ name: 'Mini Tiffin', price: 80 }]) },
       Order: { countDocuments: jest.fn().mockResolvedValue(2) },
+      SiteSettings: { findOne: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue(null) }) },
     }));
 
     const { POST } = await import('@/app/api/offers/first-tiffin-eligibility/route');

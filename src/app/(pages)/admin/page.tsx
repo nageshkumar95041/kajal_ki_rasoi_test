@@ -207,6 +207,8 @@ export default function AdminPage() {
   const [tiffinModal, setTiffinModal] = useState<{open:boolean;item?:TiffinItem|null}>({open:false});
   const [customerHistory, setCustomerHistory] = useState<{contact:string;name:string}|null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [editingCapacity, setEditingCapacity] = useState<{ id: string; value: string } | null>(null);
+  const [savingCapacity, setSavingCapacity] = useState(false);
   const [deliveryOrders, setDeliveryOrders] = useState<Order[]>([]);
   const [newAgentForm, setNewAgentForm] = useState({open:false,name:'',contact:'',password:''});
   const [assigningOrder, setAssigningOrder] = useState<string|null>(null);
@@ -401,6 +403,27 @@ export default function AdminPage() {
 
   async function updateOrderStatus(id:string, status:string) { await api(`/api/orders/${id}/status`,{method:'PUT',body:JSON.stringify({status})}); loadTab('orders'); }
   async function deleteOrder(id:string) { if(!confirm('Archive this order?')) return; await api(`/api/orders/${id}`,{method:'DELETE'}); loadTab('orders'); }
+
+  async function updateAgentCapacity(agentId: string, value: string) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 20) {
+      window.showSystemToast?.('Invalid', 'Capacity must be between 1 and 20.', 'error');
+      return;
+    }
+    setSavingCapacity(true);
+    const data = await api(`/api/admin/agents/${agentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ maxBatchLimit: Math.floor(parsed) }),
+    });
+    setSavingCapacity(false);
+    if (data?.success) {
+      setAgents(prev => prev.map(a => a._id === agentId ? { ...a, maxBatchLimit: Math.floor(parsed) } : a));
+      setEditingCapacity(null);
+      window.showSystemToast?.('Capacity Updated', `Agent capacity set to ${Math.floor(parsed)} orders.`, 'success');
+    } else {
+      window.showSystemToast?.('Failed', data?.message || 'Could not update capacity.', 'error');
+    }
+  }
   async function updateSubStatus(id:string, status:string) { await api(`/api/admin/subscriptions/${id}/status`,{method:'PUT',body:JSON.stringify({status})}); loadTab('subscriptions'); }
   async function deleteMenuItem(id:string) { if(!confirm('Delete this menu item?')) return; await api(`/api/menu/${id}`,{method:'DELETE'}); loadTab('menu'); }
   async function toggleAvailability(id:string, current:boolean) { await api(`/api/menu/${id}`,{method:'PUT',body:JSON.stringify({available:!current})}); loadTab('menu'); }
@@ -1036,7 +1059,40 @@ export default function AdminPage() {
                       </div>
                       <div style={{textAlign:'right'}}>
                         <span style={{display:'inline-block',padding:'3px 10px',borderRadius:20,fontSize:12,fontWeight:600,marginBottom:4,background:agent.status==='Available'?'#dcfce7':agent.status==='Busy'?'#fef9c3':'#f3f4f6',color:agent.status==='Available'?'#166534':agent.status==='Busy'?'#92400e':'#6b7280'}}>{agent.status}</span>
-                        <p style={{margin:0,fontSize:11,color:'var(--admin-text-muted)'}}>{agent.currentLoad}/{agent.maxBatchLimit} orders</p>
+                        {/* Capacity inline editor */}
+                        {editingCapacity?.id === agent._id ? (
+                          <div style={{display:'flex',alignItems:'center',gap:4,marginTop:4,justifyContent:'flex-end'}}>
+                            <input
+                              type="number" min={1} max={20}
+                              value={editingCapacity.value}
+                              onChange={e => setEditingCapacity({ id: agent._id, value: e.target.value })}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') updateAgentCapacity(agent._id, editingCapacity.value);
+                                if (e.key === 'Escape') setEditingCapacity(null);
+                              }}
+                              autoFocus
+                              style={{width:48,padding:'3px 6px',borderRadius:6,border:'1.5px solid #f97316',fontSize:13,fontWeight:700,textAlign:'center',outline:'none'}}
+                            />
+                            <button
+                              onClick={() => updateAgentCapacity(agent._id, editingCapacity.value)}
+                              disabled={savingCapacity}
+                              style={{background:'#f97316',color:'white',border:'none',borderRadius:6,padding:'3px 8px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                              {savingCapacity ? '…' : '✓'}
+                            </button>
+                            <button
+                              onClick={() => setEditingCapacity(null)}
+                              style={{background:'#e5e7eb',color:'#374151',border:'none',borderRadius:6,padding:'3px 8px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <p
+                            title="Click to edit capacity"
+                            onClick={() => setEditingCapacity({ id: agent._id, value: String(agent.maxBatchLimit) })}
+                            style={{margin:0,fontSize:11,color:'var(--admin-text-muted)',cursor:'pointer',borderBottom:'1px dashed #d1d5db',display:'inline-block'}}>
+                            {agent.currentLoad}/{agent.maxBatchLimit} orders ✏️
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1077,7 +1133,7 @@ export default function AdminPage() {
                               <p style={{margin:0,fontSize:13,fontWeight:600,color:'var(--admin-text-main)'}}>Select agent:</p>
                               <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
                                 {agents.map(agent=>{
-                                  const isAssignable = agent.status === 'Available' && agent.currentLoad < agent.maxBatchLimit;
+                                  const isAssignable = agent.status !== 'Offline' && agent.currentLoad < agent.maxBatchLimit;
                                   return (
                                     <button key={agent._id} disabled={!isAssignable}
                                       style={{padding:'6px 12px',borderRadius:8,border:'1.5px solid #f97316',background:'var(--admin-bg)',color:'var(--admin-text-main)',cursor:isAssignable?'pointer':'not-allowed',opacity:isAssignable?1:0.5,fontSize:13,fontWeight:500}}

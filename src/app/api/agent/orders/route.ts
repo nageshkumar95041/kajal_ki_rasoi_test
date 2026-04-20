@@ -19,10 +19,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, message: 'Agent profile not found. Contact admin.' }, { status: 404 });
   }
 
-  // Query orders by agent._id (which is what gets stored in order.agentId)
+  // Agents only see orders actively assigned to them for delivery.
+  // 'Preparing' is intentionally excluded — that status belongs to the restaurant's
+  // workflow before an agent is dispatched.
   const baseQuery = Order.find({
     agentId: agent._id,
-    status: { $in: ['Out for Delivery', 'Preparing'] },
+    status: 'Out for Delivery',
   }).sort({ timestamp: -1 });
 
   const rawOrders = typeof (baseQuery as any)?.populate === 'function'

@@ -113,8 +113,15 @@ export async function POST(req: NextRequest) {
   const assigningSameAgent = previousAgentId && previousAgentId === selectedAgentId;
   const maxBatchLimit = normalizeBatchLimit(agent.maxBatchLimit);
 
-  if (!assigningSameAgent && agent.status !== 'Available') {
-    return NextResponse.json({ success: false, message: 'Only available agents can be assigned.' }, { status: 400 });
+  if (!assigningSameAgent && agent.status === 'Offline') {
+    return NextResponse.json({ success: false, message: 'Agent is offline and cannot be assigned orders.' }, { status: 400 });
+  }
+
+  if (!assigningSameAgent && agent.currentLoad >= maxBatchLimit) {
+    return NextResponse.json(
+      { success: false, message: `Agent is at full capacity (${maxBatchLimit} orders). Choose another agent.` },
+      { status: 400 }
+    );
   }
 
   let assignedAgentName = agent.name;
@@ -122,7 +129,7 @@ export async function POST(req: NextRequest) {
     const reservedAgent = await Agent.findOneAndUpdate(
       {
         _id: selectedAgentId,
-        status: 'Available',
+        status: { $in: ['Available', 'Busy'] },
         currentLoad: { $lt: maxBatchLimit },
       },
       {
@@ -147,7 +154,10 @@ export async function POST(req: NextRequest) {
     await decrementAgentLoad(previousAgentId);
   }
 
-  const otp = generateOtp();
+  // Preserve existing OTP when reassigning the same agent
+  const otp = (assigningSameAgent && order.deliveryOtp) ? order.deliveryOtp : generateOtp();
+  const isNewAssignment = !(assigningSameAgent && order.deliveryOtp);
+
   order.agentId = agent._id;
   order.inHouseDelivery = true;
   order.deliveryOtp = otp;
@@ -162,16 +172,18 @@ export async function POST(req: NextRequest) {
     deliveryOtp: otp,
   });
 
-  // Send OTP to customer automatically
-  await sendOtpToCustomer(
-    { _id: order._id, customerName: order.customerName, contact: order.contact, userId: order.userId, total: order.total },
-    otp,
-    assignedAgentName
-  );
+  // Only email the customer on a fresh assignment
+  if (isNewAssignment) {
+    await sendOtpToCustomer(
+      { _id: order._id, customerName: order.customerName, contact: order.contact, userId: order.userId, total: order.total },
+      otp,
+      assignedAgentName
+    );
+  }
 
   return NextResponse.json({
     success: true,
-    message: `Order assigned to ${assignedAgentName}. OTP: ${otp}`,
+    message: `Order assigned to ${assignedAgentName}.${isNewAssignment ? ' OTP sent to customer.' : ' Existing OTP preserved.'}`,
     deliveryOtp: otp,
   });
 }

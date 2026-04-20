@@ -861,7 +861,10 @@ export default function RestaurantDashboard() {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                   <p style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, margin: 0 }}>Choose delivery agent:</p>
                                   {agents.map((agent) => {
-                                    const isAssignable = agent.status === 'Available' && agent.currentLoad < agent.maxBatchLimit;
+                                    const isAtCapacity = agent.currentLoad >= agent.maxBatchLimit;
+                                    const isOffline = agent.status === 'Offline';
+                                    const isAssignable = !isOffline && !isAtCapacity;
+                                    const statusColor = agent.status === 'Available' ? '#34d399' : agent.status === 'Busy' ? '#f59e0b' : '#71717a';
                                     return (
                                       <button key={agent._id} type="button"
                                         disabled={assigningOrderId === order._id || !isAssignable}
@@ -872,7 +875,11 @@ export default function RestaurantDashboard() {
                                           cursor: isAssignable ? 'pointer' : 'not-allowed', opacity: isAssignable ? 1 : 0.4,
                                           fontFamily: "'DM Sans', sans-serif",
                                         }}>
-                                        {agent.name} <span style={{ color: C.textFaint }}>({agent.currentLoad}/{agent.maxBatchLimit})</span>
+                                        <span style={{ fontWeight: 600 }}>{agent.name}</span>
+                                        <span style={{ color: statusColor, marginLeft: 6 }}>● {agent.status}</span>
+                                        <span style={{ color: C.textFaint, marginLeft: 6 }}>({agent.currentLoad}/{agent.maxBatchLimit})</span>
+                                        {isOffline && <span style={{ color: '#f87171', marginLeft: 6 }}>· Offline</span>}
+                                        {isAtCapacity && <span style={{ color: '#f87171', marginLeft: 6 }}>· Full</span>}
                                       </button>
                                     );
                                   })}

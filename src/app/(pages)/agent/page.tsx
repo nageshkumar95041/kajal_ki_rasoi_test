@@ -307,7 +307,10 @@ export default function AgentPage() {
         prevOrderCountRef.current = newCount;
 
         setOrders(incoming);
-        if (data.agentInfo) setAgentInfo(data.agentInfo);
+        if (data.agentInfo) {
+          setAgentInfo(data.agentInfo);
+          setOnline(data.agentInfo.status === 'Available' || data.agentInfo.status === 'Busy');
+        }
 
         if (isNewOrder) {
           // 🔊 Audio alert
@@ -522,4 +525,3 @@ export default function AgentPage() {
     </div>
   );
 }
-

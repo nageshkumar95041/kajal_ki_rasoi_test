@@ -14,7 +14,18 @@ export async function POST(req: NextRequest) {
     return rateLimitError;
   }
 
-  const { contact, password } = await req.json();
+  let body: { contact?: string; password?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json(
+      { success: false, message: 'Invalid request body.' },
+      { status: 400 }
+    );
+  }
+
+  const contact = body.contact?.trim() ?? '';
+  const password = body.password ?? '';
   if (!contact || !password) {
     return NextResponse.json({ success: false, message: 'Contact and password required.' }, { status: 400 });
   }

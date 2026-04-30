@@ -206,6 +206,8 @@ describe('Order Cancellation API', () => {
       contact: 'test@example.com',
       total: 250,
       status: 'Pending',
+      cancelledBy: undefined as string | undefined,
+      cancellationReason: undefined as string | undefined,
       save: jest.fn().mockResolvedValue(undefined),
     };
     (Order.findOne as jest.Mock).mockResolvedValue(order);

@@ -152,7 +152,7 @@ export default function NotificationBell() {
   };
 
   return (
-    <div ref={containerRef} style={{ position: 'relative' }}>
+    <div ref={containerRef} className="nav-notification-bell" style={{ position: 'relative' }}>
       <button
         onClick={() => setShowDropdown(!showDropdown)}
         style={{

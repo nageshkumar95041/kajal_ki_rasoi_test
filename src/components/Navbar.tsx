@@ -85,6 +85,7 @@ export default function Navbar({ scrolled: defaultScrolled = false }: { scrolled
   }
 
   const isHome  = pathname === '/';
+  const isRestaurantDashboard = pathname?.startsWith('/restaurant/dashboard');
   const hideCart = pathname === '/restaurant/dashboard' || pathname === '/restaurant/register';
   const initial = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
   const restaurantRegisterHref = user ? '/restaurant/register' : '/login?next=/restaurant/register';
@@ -112,7 +113,7 @@ export default function Navbar({ scrolled: defaultScrolled = false }: { scrolled
       id="navbar"
       ref={navRef}
       suppressHydrationWarning
-      className={`${isScrolled ? 'scrolled' : ''} ${menuOpen ? 'menu-open' : ''}`}
+      className={`${isScrolled ? 'scrolled' : ''} ${menuOpen ? 'menu-open' : ''} ${isRestaurantDashboard ? 'restaurant-dashboard-nav' : ''}`}
     >
       {/* Logo */}
       <div className="logo">
@@ -152,7 +153,8 @@ export default function Navbar({ scrolled: defaultScrolled = false }: { scrolled
               <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
               <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
             </svg>
-            Cart <span id="cart-count">{cartCount}</span>
+            <span className="nav-cart-label">Cart</span>
+            <span id="cart-count">{cartCount}</span>
           </Link>
         )}
 

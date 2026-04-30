@@ -4,14 +4,39 @@ import { initToasts } from '@/components/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { escapeHTML, getDefaultImage } from '@/lib/utils';
 
-type Tab = 'dashboard' | 'orders' | 'subscriptions' | 'menu' | 'tiffin' | 'customers' | 'users' | 'delivery';
+type Tab = 'dashboard' | 'orders' | 'subscriptions' | 'menu' | 'tiffin' | 'restaurants' | 'customers' | 'users' | 'delivery';
 interface Agent { _id: string; name: string; phone?: string; status: string; currentLoad: number; maxBatchLimit: number; userId: string; }
 interface MenuItem { _id: string; name: string; price: number; description?: string; category: string; imageUrl?: string; available?: boolean; }
 interface TiffinItem { _id: string; name: string; price: number; meta: string; emoji: string; available?: boolean; }
+interface ManagedRestaurant {
+  _id: string;
+  name: string;
+  ownerId: string;
+  ownerName?: string;
+  ownerContact?: string;
+  ownerVerified?: boolean;
+  ownerTrusted?: boolean;
+  contact: string;
+  address: string;
+  description?: string;
+  imageUrl?: string;
+  isActive: boolean;
+  isOpen: boolean;
+  estimatedDeliveryTime?: number;
+  menuCount: number;
+  liveOrderCount: number;
+  createdAt?: string;
+}
 interface Order { _id: string; status: string; customerName: string; contact?: string; address?: string; items: { name: string; quantity: number }[]; total: number; paymentMethod: string; timestamp: string; borzoStatus?: string; borzoTrackingUrl?: string; agentId?: string; inHouseDelivery?: boolean; deliveryOtp?: string; }
 interface Subscription { _id: string; customerName: string; contact: string; address: string; plan: string; frequency: number; persons: number; price: number; status: string; startDate: string; }
 interface Customer { _id: string; name: string; orderCount: number; totalSpent: number; lastOrderDate: string; }
 interface User { _id: string; name: string; contact: string; role: string; isTrusted: boolean; isVerified: boolean; }
+
+const ADMIN_TABS = (): { key: Tab; label: string; icon: string }[] => [
+  ...TABS.slice(0, 5),
+  { key: 'restaurants', label: 'Restaurants', icon: '🏪' },
+  ...TABS.slice(5),
+];
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'dashboard',     label: 'Dashboard',         icon: '📊' },
@@ -170,6 +195,8 @@ export default function AdminPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [tiffinItems, setTiffinItems] = useState<TiffinItem[]>([]);
+  const [allRestaurants, setAllRestaurants] = useState<ManagedRestaurant[]>([]);
+  const [filteredRestaurants, setFilteredRestaurants] = useState<ManagedRestaurant[]>([]);
   const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -180,6 +207,8 @@ export default function AdminPage() {
   const [tiffinModal, setTiffinModal] = useState<{open:boolean;item?:TiffinItem|null}>({open:false});
   const [customerHistory, setCustomerHistory] = useState<{contact:string;name:string}|null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [editingCapacity, setEditingCapacity] = useState<{ id: string; value: string } | null>(null);
+  const [savingCapacity, setSavingCapacity] = useState(false);
   const [deliveryOrders, setDeliveryOrders] = useState<Order[]>([]);
   const [newAgentForm, setNewAgentForm] = useState({open:false,name:'',contact:'',password:''});
   const [assigningOrder, setAssigningOrder] = useState<string|null>(null);
@@ -196,6 +225,8 @@ export default function AdminPage() {
   const isPlayingRef = useRef(false);
   const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(false);
   const [paymentToggleLoading, setPaymentToggleLoading] = useState(false);
+  const [firstTiffinEnabled, setFirstTiffinEnabled]     = useState(true);
+  const [firstTiffinToggleLoading, setFirstTiffinToggleLoading] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('adminTheme');
@@ -244,6 +275,18 @@ export default function AdminPage() {
           .then(d => setOnlinePaymentEnabled(!!d.onlinePaymentEnabled))
           .catch(() => {});
       });
+
+    // Load firstTiffinEnabled from DB (defaults to true if never set)
+    fetch('/api/admin/settings?key=firstTiffinEnabled', {
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then(r => r.json())
+      .then(d => {
+        // null means never set → treat as enabled (true)
+        const enabled = d.value === null ? true : d.value === true || d.value === 'true';
+        setFirstTiffinEnabled(enabled);
+      })
+      .catch(() => {});
   }, []);
 
   async function toggleOnlinePayment() {
@@ -276,6 +319,33 @@ export default function AdminPage() {
     setPaymentToggleLoading(false);
   }
 
+  async function toggleFirstTiffin() {
+    setFirstTiffinToggleLoading(true);
+    const newVal = !firstTiffinEnabled;
+    try {
+      const authToken = localStorage.getItem('authToken');
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ key: 'firstTiffinEnabled', value: newVal }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFirstTiffinEnabled(newVal);
+        window.showSystemToast?.(
+          newVal ? 'First Tiffin FREE Enabled' : 'First Tiffin FREE Disabled',
+          newVal ? 'New customers will see the free tiffin offer at checkout.' : 'The free tiffin offer is now hidden from all customers.',
+          newVal ? 'success' : 'info'
+        );
+      } else {
+        window.showSystemToast?.('Failed to update', data.error || 'Unknown error', 'error');
+      }
+    } catch {
+      window.showSystemToast?.('Network error', 'Could not reach server. Try again.', 'error');
+    }
+    setFirstTiffinToggleLoading(false);
+  }
+
   function toggleTheme() {
     const next = !darkMode;
     setDarkMode(next);
@@ -295,6 +365,7 @@ export default function AdminPage() {
     else if (tab==='subscriptions') { const d=await api(subFilter==='All'?'/api/admin/subscriptions':`/api/admin/subscriptions?status=${subFilter}`); if(d.success) setSubscriptions(d.subscriptions); }
     else if (tab==='menu') { const d=await api('/api/admin/menu'); setMenuItems(Array.isArray(d)?d:[]); }
     else if (tab==='tiffin') { const d=await api('/api/tiffin-menu'); setTiffinItems(Array.isArray(d)?d:[]); }
+    else if (tab==='restaurants') { const d=await api('/api/admin/restaurants'); const list=Array.isArray(d)?d:[]; setAllRestaurants(list); setFilteredRestaurants(list); }
     else if (tab==='customers') { const d=await api('/api/admin/customers'); if(d.success){setAllCustomers(d.customers);setFilteredCustomers(d.customers);} }
     else if (tab==='users') { const d=await api('/api/admin/users'); const list=Array.isArray(d)?d:[]; setAllUsers(list); setFilteredUsers(list); }
     else if (tab==='delivery') {
@@ -332,10 +403,45 @@ export default function AdminPage() {
 
   async function updateOrderStatus(id:string, status:string) { await api(`/api/orders/${id}/status`,{method:'PUT',body:JSON.stringify({status})}); loadTab('orders'); }
   async function deleteOrder(id:string) { if(!confirm('Archive this order?')) return; await api(`/api/orders/${id}`,{method:'DELETE'}); loadTab('orders'); }
+
+  async function updateAgentCapacity(agentId: string, value: string) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 20) {
+      window.showSystemToast?.('Invalid', 'Capacity must be between 1 and 20.', 'error');
+      return;
+    }
+    setSavingCapacity(true);
+    const data = await api(`/api/admin/agents/${agentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ maxBatchLimit: Math.floor(parsed) }),
+    });
+    setSavingCapacity(false);
+    if (data?.success) {
+      setAgents(prev => prev.map(a => a._id === agentId ? { ...a, maxBatchLimit: Math.floor(parsed) } : a));
+      setEditingCapacity(null);
+      window.showSystemToast?.('Capacity Updated', `Agent capacity set to ${Math.floor(parsed)} orders.`, 'success');
+    } else {
+      window.showSystemToast?.('Failed', data?.message || 'Could not update capacity.', 'error');
+    }
+  }
   async function updateSubStatus(id:string, status:string) { await api(`/api/admin/subscriptions/${id}/status`,{method:'PUT',body:JSON.stringify({status})}); loadTab('subscriptions'); }
   async function deleteMenuItem(id:string) { if(!confirm('Delete this menu item?')) return; await api(`/api/menu/${id}`,{method:'DELETE'}); loadTab('menu'); }
   async function toggleAvailability(id:string, current:boolean) { await api(`/api/menu/${id}`,{method:'PUT',body:JSON.stringify({available:!current})}); loadTab('menu'); }
   async function deleteTiffin(id:string) { if(!confirm('Delete this tiffin item?')) return; await api(`/api/admin/tiffin-menu/${id}`,{method:'DELETE'}); loadTab('tiffin'); }
+  async function updateRestaurant(id:string, body:object) {
+    const res = await api(`/api/admin/restaurants/${id}`, { method:'PATCH', body: JSON.stringify(body) });
+    window.showSystemToast?.(
+      res.success ? 'Restaurant Updated' : 'Update Failed',
+      res.success ? 'Restaurant settings saved.' : (res.message || 'Unable to update restaurant.'),
+      res.success ? 'success' : 'error'
+    );
+    if (res.success) loadTab('restaurants');
+  }
+  async function promptEtaUpdate(restaurant: ManagedRestaurant) {
+    const value = prompt(`Estimated delivery time for ${restaurant.name} (minutes)`, String(restaurant.estimatedDeliveryTime || 30));
+    if (value === null) return;
+    await updateRestaurant(restaurant._id, { estimatedDeliveryTime: Number(value) });
+  }
   async function userAction(id:string, endpoint:string, body:object) {
     const method = endpoint.endsWith(id) && Object.keys(body).length===0 ? 'DELETE' : 'PUT';
     const url = method==='DELETE' ? `/api/admin/users/${id}` : endpoint;
@@ -377,7 +483,7 @@ export default function AdminPage() {
         <aside className={`admin-sidebar${sidebarOpen?' open':''}`}>
           <div className="sidebar-logo">Kajal Ki Rasoi<br/><span>Admin Portal</span></div>
           <ul className="sidebar-nav">
-            {TABS.map(t => (
+            {ADMIN_TABS().map(t => (
               <li key={t.key}>
                 <a href="#" className={activeTab===t.key?'active':''} onClick={e=>{e.preventDefault();switchTab(t.key);}} style={{display:'flex',alignItems:'center',gap:10}}>
                   <span style={{fontSize:17,lineHeight:1,flexShrink:0}}>{t.icon}</span>
@@ -447,6 +553,45 @@ export default function AdminPage() {
                 </button>
               </div>
 
+              {/* ── First Tiffin FREE Offer Control ── */}
+              <div style={{
+                background: firstTiffinEnabled ? 'var(--admin-sidebar)' : '#1c1917',
+                border: `1.5px solid ${firstTiffinEnabled ? '#f97316' : '#52525b'}`,
+                borderRadius: 12, padding: '16px 20px', marginBottom: '1.5rem',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: 28 }}>{firstTiffinEnabled ? '🎁' : '🚫'}</span>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--admin-text-main)' }}>
+                      First Tiffin FREE Offer:{' '}
+                      <span style={{ color: firstTiffinEnabled ? '#f97316' : '#71717a' }}>
+                        {firstTiffinEnabled ? 'Active' : 'Disabled'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', marginTop: 3 }}>
+                      {firstTiffinEnabled
+                        ? 'New customers get their first tiffin free at checkout'
+                        : 'Offer is hidden — all customers pay full price'}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={toggleFirstTiffin}
+                  disabled={firstTiffinToggleLoading}
+                  style={{
+                    padding: '10px 22px', borderRadius: 8, border: 'none',
+                    cursor: firstTiffinToggleLoading ? 'not-allowed' : 'pointer',
+                    fontWeight: 700, fontSize: 14, flexShrink: 0,
+                    background: firstTiffinEnabled ? '#ef4444' : '#f97316',
+                    color: 'white', opacity: firstTiffinToggleLoading ? 0.6 : 1,
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {firstTiffinToggleLoading ? '⏳ Saving…' : firstTiffinEnabled ? '🔴 Disable Offer' : '🟢 Enable Offer'}
+                </button>
+              </div>
+
               {!stats?<p>Loading stats...</p>:<>
                 {/* Mini stat cards */}
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:12,marginBottom:'1.5rem'}}>
@@ -455,6 +600,8 @@ export default function AdminPage() {
                     ["TOTAL ORDERS",stats.meaningfulTotal||0,`${pendingCount} pending now`],
                     ["THIS WEEK",`₹${stats.revenue?.week?.toLocaleString('en-IN')||0}`,'Mon–today'],
                     ["THIS MONTH",`₹${stats.revenue?.month?.toLocaleString('en-IN')||0}`,'Current month'],
+                    ["RESTAURANTS",stats.restaurantStats?.total||0,`${stats.restaurantStats?.active||0} active`],
+                    ["OPEN NOW",stats.restaurantStats?.open||0,`${stats.restaurantStats?.withLiveOrders||0} with live orders`],
                   ].map(([label,value,sub])=>(
                     <div key={String(label)} style={{background:'var(--admin-sidebar)',borderRadius:12,border:'0.5px solid var(--admin-border)',padding:'16px 18px'}}>
                       <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase' as const,letterSpacing:0.5,marginBottom:4}}>{label}</div>
@@ -495,6 +642,17 @@ export default function AdminPage() {
                     </div>
                   </div>
                   <div className="stat-card">
+                    <h3>Restaurant Network</h3>
+                    <div style={{fontSize:32,fontWeight:700,color:'var(--admin-text-main)',margin:'8px 0 4px'}}>{stats.restaurantStats?.total||0}</div>
+                    <div style={{fontSize:12,color:'var(--admin-text-muted)',marginBottom:16}}>Total restaurants onboarded</div>
+                    <div style={{borderTop:'1px solid var(--admin-border)',paddingTop:12,display:'flex',flexDirection:'column' as const,gap:8}}>
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:14}}><span style={{color:'var(--admin-text-muted)'}}>Active:</span><strong>{stats.restaurantStats?.active||0}</strong></div>
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:14}}><span style={{color:'var(--admin-text-muted)'}}>Open right now:</span><strong>{stats.restaurantStats?.open||0}</strong></div>
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:14}}><span style={{color:'var(--admin-text-muted)'}}>With menu:</span><strong>{stats.restaurantStats?.withMenu||0}</strong></div>
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:14}}><span style={{color:'var(--admin-text-muted)'}}>With live orders:</span><strong>{stats.restaurantStats?.withLiveOrders||0}</strong></div>
+                    </div>
+                  </div>
+                  <div className="stat-card">
                     <h3>Top Selling Items</h3>
                     <div style={{marginTop:12,display:'flex',flexDirection:'column' as const,gap:14}}>
                       {(stats.topItems||[]).map((item:any)=>(
@@ -509,6 +667,34 @@ export default function AdminPage() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                  <div className="stat-card">
+                    <h3>Top Restaurants (Revenue)</h3>
+                    {(stats.topRestaurants||[]).length===0 ? (
+                      <p style={{marginTop:12,fontSize:14,color:'var(--admin-text-muted)'}}>No restaurant revenue data yet.</p>
+                    ) : (
+                      <div style={{marginTop:12,display:'flex',flexDirection:'column' as const,gap:14}}>
+                        {(stats.topRestaurants||[]).map((restaurant:any)=>(
+                          <div key={String(restaurant.restaurantId||restaurant.name)}>
+                            <div style={{display:'flex',justifyContent:'space-between',marginBottom:5,gap:8}}>
+                              <span style={{fontSize:14,color:'var(--admin-text-main)',fontWeight:500}}>
+                                {escapeHTML(restaurant.name)}
+                              </span>
+                              <strong style={{fontSize:13,color:'var(--admin-text-muted)'}}>
+                                ₹{Number(restaurant.revenue||0).toLocaleString('en-IN')}
+                              </strong>
+                            </div>
+                            <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--admin-text-muted)',marginBottom:6}}>
+                              <span>{restaurant.completedOrders||0} completed orders</span>
+                              <span>{restaurant.isOpen ? 'Open' : 'Closed'}</span>
+                            </div>
+                            <div style={{height:5,background:'var(--admin-border)',borderRadius:3}}>
+                              <div style={{background:'#3b82f6',width:`${Math.min(100,((restaurant.revenue||0)/((stats.topRestaurants?.[0]?.revenue)||1))*100)}%`,height:'100%',borderRadius:3}}/>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </>}
@@ -646,6 +832,110 @@ export default function AdminPage() {
             </div>
           )}
 
+          {/* RESTAURANTS */}
+          {activeTab==='restaurants' && (
+            <div className="admin-tab-content active">
+              <h2>Restaurant Management</h2>
+              <p style={{margin:'0 0 1rem',fontSize:'0.92rem',color:'var(--admin-text-muted)'}}>View registered restaurants, monitor owner details, and control whether each restaurant is active or open for orders.</p>
+              <input
+                type="text"
+                placeholder="Search restaurants by name, owner, contact, or address..."
+                onChange={e=>{
+                  const t=e.target.value.toLowerCase();
+                  setFilteredRestaurants(allRestaurants.filter(r=>
+                    (r.name||'').toLowerCase().includes(t) ||
+                    (r.ownerName||'').toLowerCase().includes(t) ||
+                    (r.contact||'').toLowerCase().includes(t) ||
+                    (r.ownerContact||'').toLowerCase().includes(t) ||
+                    (r.address||'').toLowerCase().includes(t)
+                  ));
+                }}
+                style={{background:'var(--admin-card-bg)',border:'1px solid var(--admin-border)',borderRadius:8,padding:'10px 14px',color:'var(--admin-text-main)',width:'100%',maxWidth:460,marginBottom:'1rem',boxSizing:'border-box'}}
+              />
+
+              {filteredRestaurants.length===0 ? <p className="empty-cart">No restaurants found.</p> : (
+                <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+                  <table style={{width:'100%',borderCollapse:'collapse',minWidth:920}}>
+                    <thead>
+                      <tr style={{background:'var(--admin-sidebar)',color:'var(--admin-sidebar-text)',textAlign:'left'}}>
+                        {['Restaurant','Owner','Operations','Status','Actions'].map(h=><th key={h} style={thStyle}>{h}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRestaurants.map(restaurant=>(
+                        <tr key={restaurant._id} style={{borderBottom:'1px solid var(--admin-border)'}}>
+                          <td style={tdStyle}>
+                            <div style={{display:'flex',alignItems:'center',gap:12}}>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={restaurant.imageUrl?.trim()?escapeHTML(restaurant.imageUrl):getDefaultImage(restaurant.name)}
+                                alt={restaurant.name}
+                                style={{width:56,height:56,objectFit:'cover',borderRadius:10,flexShrink:0,border:'1px solid var(--admin-border)'}}
+                                onError={e=>{(e.target as HTMLImageElement).src='https://via.placeholder.com/56?text=Err';}}
+                              />
+                              <div>
+                                <div style={{fontWeight:600,color:'var(--admin-text-main)'}}>{escapeHTML(restaurant.name)}</div>
+                                <div style={{fontSize:'0.85rem',color:'var(--admin-text-muted)',marginTop:2}}>{escapeHTML(restaurant.contact)}</div>
+                                <div style={{fontSize:'0.82rem',color:'var(--admin-text-muted)',marginTop:4,maxWidth:260,lineHeight:1.5}}>{escapeHTML(restaurant.address)}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={tdStyle}>
+                            <div style={{fontWeight:500,color:'var(--admin-text-main)'}}>{escapeHTML(restaurant.ownerName || 'Unknown Owner')}</div>
+                            <div style={{fontSize:'0.85rem',color:'var(--admin-text-muted)',marginTop:2}}>{escapeHTML(restaurant.ownerContact || '')}</div>
+                            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:8}}>
+                              <span style={{background:restaurant.ownerVerified?'#22c55e':'#f97316',color:'#fff',padding:'3px 8px',borderRadius:12,fontSize:'0.75rem'}}>{restaurant.ownerVerified?'Verified':'Unverified'}</span>
+                              <span style={{background:restaurant.ownerTrusted?'#3b82f6':'#6b7280',color:'#fff',padding:'3px 8px',borderRadius:12,fontSize:'0.75rem'}}>{restaurant.ownerTrusted?'Trusted':'Standard'}</span>
+                            </div>
+                          </td>
+                          <td style={tdStyle}>
+                            <div style={{display:'flex',flexDirection:'column',gap:6,fontSize:'0.88rem'}}>
+                              <div style={{color:'var(--admin-text-main)'}}><strong>{restaurant.menuCount}</strong> menu item{restaurant.menuCount!==1?'s':''}</div>
+                              <div style={{color:'var(--admin-text-main)'}}><strong>{restaurant.liveOrderCount}</strong> live order{restaurant.liveOrderCount!==1?'s':''}</div>
+                              <div style={{color:'var(--admin-text-muted)'}}>ETA: {restaurant.estimatedDeliveryTime || 30} mins</div>
+                              <div style={{color:'var(--admin-text-muted)'}}>Added {restaurant.createdAt ? new Date(restaurant.createdAt).toLocaleDateString('en-IN') : 'recently'}</div>
+                            </div>
+                          </td>
+                          <td style={tdStyle}>
+                            <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                              <span className={`status ${restaurant.isActive ? 'completed' : 'cancelled'}`}>{restaurant.isActive ? 'Active' : 'Inactive'}</span>
+                              <span className={`status ${restaurant.isOpen ? 'preparing' : 'rejected'}`}>{restaurant.isOpen ? 'Open for Orders' : 'Closed'}</span>
+                            </div>
+                          </td>
+                          <td style={tdStyle}>
+                            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                              <button
+                                className="btn-order"
+                                style={btnStyle(restaurant.isActive ? '#3b0a0a' : '#052e16', restaurant.isActive ? '#fca5a5' : '#4ade80')}
+                                onClick={()=>updateRestaurant(restaurant._id,{isActive:!restaurant.isActive})}
+                              >
+                                {restaurant.isActive ? 'Deactivate' : 'Activate'}
+                              </button>
+                              <button
+                                className="btn-order"
+                                style={btnStyle(restaurant.isOpen ? '#4b5563' : '#1e3a5f', restaurant.isOpen ? '#e5e7eb' : '#60a5fa')}
+                                onClick={()=>updateRestaurant(restaurant._id,{isOpen:!restaurant.isOpen})}
+                              >
+                                {restaurant.isOpen ? 'Mark Closed' : 'Mark Open'}
+                              </button>
+                              <button
+                                className="btn-order"
+                                style={btnStyle('#7c2d12','#fdba74')}
+                                onClick={()=>promptEtaUpdate(restaurant)}
+                              >
+                                Update ETA
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* CUSTOMERS */}
           {activeTab==='customers' && (
             <div className="admin-tab-content active">
@@ -769,7 +1059,40 @@ export default function AdminPage() {
                       </div>
                       <div style={{textAlign:'right'}}>
                         <span style={{display:'inline-block',padding:'3px 10px',borderRadius:20,fontSize:12,fontWeight:600,marginBottom:4,background:agent.status==='Available'?'#dcfce7':agent.status==='Busy'?'#fef9c3':'#f3f4f6',color:agent.status==='Available'?'#166534':agent.status==='Busy'?'#92400e':'#6b7280'}}>{agent.status}</span>
-                        <p style={{margin:0,fontSize:11,color:'var(--admin-text-muted)'}}>{agent.currentLoad}/{agent.maxBatchLimit} orders</p>
+                        {/* Capacity inline editor */}
+                        {editingCapacity?.id === agent._id ? (
+                          <div style={{display:'flex',alignItems:'center',gap:4,marginTop:4,justifyContent:'flex-end'}}>
+                            <input
+                              type="number" min={1} max={20}
+                              value={editingCapacity.value}
+                              onChange={e => setEditingCapacity({ id: agent._id, value: e.target.value })}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') updateAgentCapacity(agent._id, editingCapacity.value);
+                                if (e.key === 'Escape') setEditingCapacity(null);
+                              }}
+                              autoFocus
+                              style={{width:48,padding:'3px 6px',borderRadius:6,border:'1.5px solid #f97316',fontSize:13,fontWeight:700,textAlign:'center',outline:'none'}}
+                            />
+                            <button
+                              onClick={() => updateAgentCapacity(agent._id, editingCapacity.value)}
+                              disabled={savingCapacity}
+                              style={{background:'#f97316',color:'white',border:'none',borderRadius:6,padding:'3px 8px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                              {savingCapacity ? '…' : '✓'}
+                            </button>
+                            <button
+                              onClick={() => setEditingCapacity(null)}
+                              style={{background:'#e5e7eb',color:'#374151',border:'none',borderRadius:6,padding:'3px 8px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <p
+                            title="Click to edit capacity"
+                            onClick={() => setEditingCapacity({ id: agent._id, value: String(agent.maxBatchLimit) })}
+                            style={{margin:0,fontSize:11,color:'var(--admin-text-muted)',cursor:'pointer',borderBottom:'1px dashed #d1d5db',display:'inline-block'}}>
+                            {agent.currentLoad}/{agent.maxBatchLimit} orders ✏️
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -809,16 +1132,20 @@ export default function AdminPage() {
                             <div style={{display:'flex',flexDirection:'column',gap:8}}>
                               <p style={{margin:0,fontSize:13,fontWeight:600,color:'var(--admin-text-main)'}}>Select agent:</p>
                               <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                                {agents.map(agent=>(
-                                  <button key={agent._id} style={{padding:'6px 12px',borderRadius:8,border:'1.5px solid #f97316',background:'var(--admin-bg)',color:'var(--admin-text-main)',cursor:'pointer',fontSize:13,fontWeight:500}}
-                                    onClick={async()=>{
-                                      const d=await api('/api/admin/agents/assign',{method:'POST',body:JSON.stringify({orderId:order._id,agentId:agent._id})});
-                                      if(d.success){setAssignResult({orderId:order._id,otp:d.deliveryOtp});setAssigningOrder(null);loadTab('delivery');}
-                                      else alert(d.message||'Failed.');
-                                    }}>
-                                    {agent.name} ({agent.currentLoad}/{agent.maxBatchLimit})
-                                  </button>
-                                ))}
+                                {agents.map(agent=>{
+                                  const isAssignable = agent.status !== 'Offline' && agent.currentLoad < agent.maxBatchLimit;
+                                  return (
+                                    <button key={agent._id} disabled={!isAssignable}
+                                      style={{padding:'6px 12px',borderRadius:8,border:'1.5px solid #f97316',background:'var(--admin-bg)',color:'var(--admin-text-main)',cursor:isAssignable?'pointer':'not-allowed',opacity:isAssignable?1:0.5,fontSize:13,fontWeight:500}}
+                                      onClick={async()=>{
+                                        const d=await api('/api/admin/agents/assign',{method:'POST',body:JSON.stringify({orderId:order._id,agentId:agent._id})});
+                                        if(d.success){setAssignResult({orderId:order._id,otp:d.deliveryOtp});setAssigningOrder(null);loadTab('delivery');}
+                                        else alert(d.message||'Failed.');
+                                      }}>
+                                      {agent.name} ({agent.currentLoad}/{agent.maxBatchLimit})
+                                    </button>
+                                  );
+                                })}
                                 {agents.length===0&&<p style={{color:'#ef4444',fontSize:13}}>No agents available.</p>}
                               </div>
                               <div style={{display:'flex',gap:6}}>

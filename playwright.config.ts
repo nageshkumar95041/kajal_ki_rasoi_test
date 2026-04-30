@@ -18,10 +18,10 @@ export default defineConfig({
   // Wake up the Render instance before the test suite starts
   globalSetup: './src/__tests__/e2e/global-setup.ts',
 
-  fullyParallel: true,
+  fullyParallel: !!process.env.CI,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 2 : undefined,
+  workers: process.env.CI ? 2 : 2,
 
   reporter: [
     ['list'],
@@ -62,6 +62,6 @@ export default defineConfig({
         command: 'npm run dev',
         url:     'http://localhost:3000',
         reuseExistingServer: !process.env.CI,
-        timeout: 60_000,
+        timeout: 120_000,
       },
 });

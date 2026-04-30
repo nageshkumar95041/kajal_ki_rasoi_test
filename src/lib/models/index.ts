@@ -19,18 +19,25 @@ export const User: Model<any> = models.User || model('User', userSchema);
 // ─── Order ────────────────────────────────────────────────────────────────────
 const orderSchema = new Schema({
   userId: { type: String, index: true },
+  restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', index: true },
   customerName: { type: String, required: true },
   contact: { type: String },
   phone: { type: String },
   address: { type: String, required: true },
   items: { type: Array, required: true },
   total: { type: Number, required: true },
+  newCustomerOfferApplied: { type: Boolean, default: false },
+  newCustomerOfferDiscount: { type: Number, default: 0 },
+  newCustomerOfferItemName: { type: String },
   paymentMethod: { type: String, default: 'Online', enum: ['Online', 'COD'] },
   status: {
     type: String, default: 'Pending',
     enum: ['Pending', 'Preparing', 'Out for Delivery', 'Completed', 'Rejected', 'Cancelled', 'Failed'],
     index: true,
   },
+  cancellationReason: { type: String },
+  cancelledAt: { type: Date },
+  cancelledBy: { type: String, enum: ['customer', 'restaurant', 'admin'] },
   timestamp: { type: Date, default: Date.now, index: true },
   rating: { type: Number },
   review: { type: String },
@@ -72,11 +79,15 @@ export const Subscription: Model<any> = models.Subscription || model('Subscripti
 const cartSchema = new Schema({
   stripeSessionId: { type: String, required: true, index: true },
   userId: { type: String },
+  restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant' },
   customerName: { type: String, required: true },
   contact: { type: String },
   phone: { type: String },
   address: { type: String, required: true },
   cart: { type: Object, required: true },
+  newCustomerOfferApplied: { type: Boolean, default: false },
+  newCustomerOfferDiscount: { type: Number, default: 0 },
+  newCustomerOfferItemName: { type: String },
   deliveryFee: { type: Number, default: 0 },
   customerLat: { type: Number },
   customerLng: { type: Number },
@@ -103,7 +114,8 @@ export const TempSubscription: Model<any> = models.TempSubscription || model('Te
 
 // ─── MenuItem ─────────────────────────────────────────────────────────────────
 const menuItemSchema = new Schema({
-  name: { type: String, required: true, unique: true },
+  restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', index: true },
+  name: { type: String, required: true },
   price: { type: Number, required: true },
   description: { type: String },
   category: { type: String, default: '🍲 Main Course', index: true },
@@ -111,6 +123,7 @@ const menuItemSchema = new Schema({
   available: { type: Boolean, default: true },
 });
 
+menuItemSchema.index({ restaurantId: 1, name: 1 }, { unique: true });
 export const MenuItem: Model<any> = models.MenuItem || model('MenuItem', menuItemSchema);
 
 // ─── TiffinItem ───────────────────────────────────────────────────────────────
@@ -131,7 +144,7 @@ const agentSchema = new Schema({
   phone: { type: String },
   status: { type: String, default: 'Offline', enum: ['Available', 'Busy', 'Offline'] },
   currentLoad: { type: Number, default: 0 },
-  maxBatchLimit: { type: Number, default: 1000 },
+  maxBatchLimit: { type: Number, default: 5 },
   location: {
     type: { type: String, default: 'Point' },
     coordinates: { type: [Number], default: [0, 0] },
@@ -148,3 +161,60 @@ const siteSettingsSchema = new Schema({
 }, { timestamps: true, strict: false });
 
 export const SiteSettings: Model<any> = models.SiteSettings || model('SiteSettings', siteSettingsSchema);
+
+// ─── Restaurant ───────────────────────────────────────────────────────────────
+const restaurantSchema = new Schema({
+  name: { type: String, required: true },
+  ownerId: { type: String, required: true, unique: true },
+  contact: { type: String, required: true },
+  address: { type: String, required: true },
+  description: { type: String },
+  imageUrl: { type: String },
+  isActive: { type: Boolean, default: true },
+  isOpen: { type: Boolean, default: true },
+  location: {
+    type: { type: String, default: 'Point' },
+    coordinates: { type: [Number], default: [0, 0] },
+  },
+  operatingHours: {
+    monday: { open: { type: String, default: '09:00' }, close: { type: String, default: '22:00' }, closed: { type: Boolean, default: false } },
+    tuesday: { open: { type: String, default: '09:00' }, close: { type: String, default: '22:00' }, closed: { type: Boolean, default: false } },
+    wednesday: { open: { type: String, default: '09:00' }, close: { type: String, default: '22:00' }, closed: { type: Boolean, default: false } },
+    thursday: { open: { type: String, default: '09:00' }, close: { type: String, default: '22:00' }, closed: { type: Boolean, default: false } },
+    friday: { open: { type: String, default: '09:00' }, close: { type: String, default: '22:00' }, closed: { type: Boolean, default: false } },
+    saturday: { open: { type: String, default: '09:00' }, close: { type: String, default: '23:00' }, closed: { type: Boolean, default: false } },
+    sunday: { open: { type: String, default: '10:00' }, close: { type: String, default: '23:00' }, closed: { type: Boolean, default: false } },
+  },
+  estimatedDeliveryTime: { type: Number, default: 30 }, // in minutes
+}, { timestamps: true });
+
+restaurantSchema.index({ location: '2dsphere' });
+export const Restaurant: Model<any> = models.Restaurant || model('Restaurant', restaurantSchema);
+
+// ─── Notification ──────────────────────────────────────────────────────────────
+const notificationSchema = new Schema({
+  userId: { type: String, required: true, index: true },
+  type: { type: String, enum: ['order_placed', 'order_status', 'order_completed', 'new_order', 'payment_received'], required: true },
+  title: { type: String, required: true },
+  message: { type: String, required: true },
+  orderId: { type: Schema.Types.ObjectId, ref: 'Order' },
+  restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant' },
+  isRead: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now, index: true },
+});
+
+export const Notification: Model<any> = models.Notification || model('Notification', notificationSchema);
+
+// ─── PushSubscription ─────────────────────────────────────────────────────────
+// Stores Web Push subscriptions per user for locked-screen notifications
+const pushSubscriptionSchema = new Schema({
+  userId:   { type: String, required: true, index: true },
+  role:     { type: String, enum: ['user', 'agent', 'restaurant', 'admin'], default: 'user' },
+  endpoint: { type: String, required: true, unique: true },
+  keys: {
+    p256dh: { type: String, required: true },
+    auth:   { type: String, required: true },
+  },
+}, { timestamps: true });
+
+export const PushSubscription: Model<any> = models.PushSubscription || model('PushSubscription', pushSubscriptionSchema);

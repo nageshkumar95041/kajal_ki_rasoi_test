@@ -8,6 +8,11 @@ export async function GET(req: NextRequest) {
   if (auth instanceof NextResponse) return auth;
   const { user } = auth;
 
+  // Debug endpoint — admin only in all environments
+  if (user.role !== 'admin') {
+    return NextResponse.json({ success: false, message: 'Forbidden.' }, { status: 403 });
+  }
+
   await connectDB();
 
   const agent = await Agent.findOne({ userId: user.id });

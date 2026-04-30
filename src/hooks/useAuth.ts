@@ -1,9 +1,9 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAuthToken, getLoggedInUser, isTokenExpired } from '@/lib/utils';
+import { getAuthToken, getLoggedInUser, isTokenExpired, type LoggedInUser } from '@/lib/utils';
 
-interface User { name: string; contact: string; role: string; }
+type User = LoggedInUser;
 
 export function useAuth(requireLogin = false, requireAdmin = false) {
   const [user, setUser] = useState<User | null>(null);

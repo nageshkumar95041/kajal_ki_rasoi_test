@@ -3,7 +3,7 @@ import { connectDB } from '@/lib/mongodb';
 import { Agent } from '@/lib/models';
 import { requireAuth } from '@/lib/auth';
 
-export async function PUT(req: NextRequest) {
+async function handleStatusUpdate(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const { user } = auth;
@@ -24,3 +24,7 @@ export async function PUT(req: NextRequest) {
   if (!agent) return NextResponse.json({ success: false, message: 'Agent profile not found.' }, { status: 404 });
   return NextResponse.json({ success: true, agent });
 }
+
+// Support both PUT (used by agent dashboard) and POST (used by E2E test / API clients)
+export const PUT  = handleStatusUpdate;
+export const POST = handleStatusUpdate;

@@ -49,6 +49,13 @@ export interface SubscriptionQuote {
   frequencyLabel: string;
 }
 
+export interface FirstTiffinOfferResult {
+  discount: number;
+  discountedSubtotal: number;
+  applied: boolean;
+  itemName: string | null;
+}
+
 function normalizeOrigin(value?: string | null): string | null {
   if (!value) return null;
   try {
@@ -182,6 +189,42 @@ export function applyApna50Coupon(subtotal: number, couponCode: unknown): {
     finalTotal: subtotal,
     appliedCouponCode: null,
     discount: 0,
+  };
+}
+
+export function applyFirstTiffinFreeOffer(input: {
+  items: CanonicalCartItem[];
+  subtotal: number;
+  tiffinItemNames: Iterable<string>;
+  isNewCustomer: boolean;
+}): FirstTiffinOfferResult {
+  if (!input.isNewCustomer || input.subtotal <= 0) {
+    return {
+      discount: 0,
+      discountedSubtotal: Math.max(0, input.subtotal),
+      applied: false,
+      itemName: null,
+    };
+  }
+
+  const tiffinSet = new Set(input.tiffinItemNames);
+  for (const item of input.items) {
+    if (!tiffinSet.has(item.name) || item.quantity < 1 || item.price <= 0) continue;
+
+    const discount = Math.min(item.price, input.subtotal);
+    return {
+      discount,
+      discountedSubtotal: Math.max(0, input.subtotal - discount),
+      applied: discount > 0,
+      itemName: discount > 0 ? item.name : null,
+    };
+  }
+
+  return {
+    discount: 0,
+    discountedSubtotal: Math.max(0, input.subtotal),
+    applied: false,
+    itemName: null,
   };
 }
 

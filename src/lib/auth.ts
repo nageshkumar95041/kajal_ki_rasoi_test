@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { NextRequest, NextResponse } from 'next/server';
+import { connectDB } from '@/lib/mongodb';
+import { Restaurant } from '@/lib/models';
 
 const SECRET_KEY = process.env.JWT_SECRET!;
 
@@ -45,6 +47,19 @@ export function requireAdmin(req: NextRequest): { user: JWTPayload } | NextRespo
     return NextResponse.json({ success: false, message: 'Forbidden. Admins only.' }, { status: 403 });
   }
   return result;
+}
+
+export async function requireRestaurant(req: NextRequest): Promise<{ user: JWTPayload; restaurant: any } | NextResponse> {
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+
+  await connectDB();
+  const restaurant = await Restaurant.findOne({ ownerId: auth.user.id }).lean();
+  if (!restaurant) {
+    return NextResponse.json({ success: false, message: 'Restaurant not found for this user.' }, { status: 404 });
+  }
+
+  return { user: auth.user, restaurant };
 }
 
 export function optionalAuth(req: NextRequest): JWTPayload | null {

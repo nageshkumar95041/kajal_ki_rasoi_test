@@ -1,16 +1,47 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import ToastInit from '@/components/Toast';
 import StickyCart from '@/components/StickyCart';
-import { getCart, saveCart, getAuthToken, isTokenExpired, CartItem } from '@/lib/utils';
+import { getCart, saveCart, getAuthToken, getLoggedInUser, isTokenExpired, CartItem } from '@/lib/utils';
 import Link from 'next/link';
 
 interface TiffinItem { _id: string; name: string; price: number; meta: string; emoji: string; available?: boolean; }
 
 export default function HomeClient() {
+  const router = useRouter();
   const [tiffinItems, setTiffinItems] = useState<TiffinItem[]>([]);
   const [cart, setCart] = useState<CartItem[]>(getCart());
+
+  useEffect(() => {
+    const token = getAuthToken();
+    const user = getLoggedInUser();
+    if (!token || !user || isTokenExpired(token)) return;
+
+    if (user.role === 'agent') {
+      router.replace('/agent');
+      return;
+    }
+
+    if (user.hasRestaurant) {
+      router.replace('/restaurant/dashboard');
+      return;
+    }
+
+    fetch('/api/my-restaurant', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const restaurant = await res.json();
+        if (restaurant?._id) {
+          localStorage.setItem('loggedInUser', JSON.stringify({ ...user, hasRestaurant: true }));
+          router.replace('/restaurant/dashboard');
+        }
+      })
+      .catch(() => {});
+  }, [router]);
 
   useEffect(() => {
     fetch('/api/tiffin-menu').then(r => r.json()).then(setTiffinItems).catch(console.error);

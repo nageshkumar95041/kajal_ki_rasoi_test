@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     phone: contact,
     status: 'Offline',
     currentLoad: 0,
-    maxBatchLimit: 1000,
+    maxBatchLimit: 5,
     location: { type: 'Point', coordinates: [0, 0] },
   });
 

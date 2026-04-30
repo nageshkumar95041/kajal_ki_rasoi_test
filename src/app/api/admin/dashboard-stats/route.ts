@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
-import { Order } from '@/lib/models';
+import { MenuItem, Order, Restaurant } from '@/lib/models';
 import { requireAdmin } from '@/lib/auth';
+
+async function aggregateSafe(model: any, pipeline: Record<string, unknown>[]): Promise<any[]> {
+  if (typeof model?.aggregate !== 'function') return [];
+  const result = await model.aggregate(pipeline);
+  return Array.isArray(result) ? result : [];
+}
 
 export async function GET(req: NextRequest) {
   const auth = requireAdmin(req);
@@ -24,9 +30,9 @@ export async function GET(req: NextRequest) {
   // This month: 1st of current month 00:00
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [revenueStats, orderCounts, topItems] = await Promise.all([
+  const [revenueStats, orderCounts, topItems, restaurantCounts, menuCoverage, liveRestaurantCounts, topRestaurants] = await Promise.all([
     // Revenue: only Completed orders
-    Order.aggregate([
+    aggregateSafe(Order, [
       { $match: { status: 'Completed' } },
       { $facet: {
         today: [
@@ -45,13 +51,13 @@ export async function GET(req: NextRequest) {
     ]),
 
     // Order counts by status — all statuses
-    Order.aggregate([
+    aggregateSafe(Order, [
       { $group: { _id: '$status', count: { $sum: 1 } } },
       { $sort: { _id: 1 } },
     ]),
 
     // Top selling items — use $ifNull so items without quantity default to 1
-    Order.aggregate([
+    aggregateSafe(Order, [
       { $match: { status: { $in: ['Preparing', 'Out for Delivery', 'Completed'] } } },
       { $unwind: '$items' },
       { $group: {
@@ -60,6 +66,64 @@ export async function GET(req: NextRequest) {
       }},
       { $sort: { count: -1 } },
       { $limit: 5 },
+    ]),
+
+    // Restaurant network stats
+    aggregateSafe(Restaurant, [
+      {
+        $facet: {
+          total: [{ $count: 'count' }],
+          active: [{ $match: { isActive: true } }, { $count: 'count' }],
+          open: [{ $match: { isOpen: true } }, { $count: 'count' }],
+        },
+      },
+    ]),
+
+    // Restaurants that have at least one menu item
+    aggregateSafe(MenuItem, [
+      { $group: { _id: '$restaurantId' } },
+      { $count: 'count' },
+    ]),
+
+    // Restaurants with live orders
+    aggregateSafe(Order, [
+      { $match: { status: { $in: ['Pending', 'Preparing', 'Out for Delivery'] }, restaurantId: { $ne: null } } },
+      { $group: { _id: '$restaurantId' } },
+      { $count: 'count' },
+    ]),
+
+    // Top restaurants by completed revenue
+    aggregateSafe(Order, [
+      { $match: { status: 'Completed', restaurantId: { $ne: null } } },
+      {
+        $group: {
+          _id: '$restaurantId',
+          revenue: { $sum: '$total' },
+          completedOrders: { $sum: 1 },
+        },
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: 5 },
+      {
+        $lookup: {
+          from: 'restaurants',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'restaurant',
+        },
+      },
+      { $unwind: { path: '$restaurant', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          restaurantId: '$_id',
+          name: { $ifNull: ['$restaurant.name', 'Unknown Restaurant'] },
+          revenue: 1,
+          completedOrders: 1,
+          isActive: '$restaurant.isActive',
+          isOpen: '$restaurant.isOpen',
+        },
+      },
     ]),
   ]);
 
@@ -76,12 +140,21 @@ export async function GET(req: NextRequest) {
     .reduce((s: number, o: any) => s + o.count, 0);
 
   const pendingCount = orderCounts.find((o: any) => o._id === 'Pending')?.count || 0;
+  const restaurantStats = {
+    total: restaurantCounts[0]?.total[0]?.count || 0,
+    active: restaurantCounts[0]?.active[0]?.count || 0,
+    open: restaurantCounts[0]?.open[0]?.count || 0,
+    withMenu: menuCoverage[0]?.count || 0,
+    withLiveOrders: liveRestaurantCounts[0]?.count || 0,
+  };
 
   return NextResponse.json({
     success: true,
     revenue,
     orderCounts,
     topItems,
+    restaurantStats,
+    topRestaurants,
     meaningfulTotal,
     pendingCount,
   });

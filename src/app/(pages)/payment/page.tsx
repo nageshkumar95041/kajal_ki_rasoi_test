@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-import { getCart, getAuthToken, getLoggedInUser, CartItem } from '@/lib/utils';
+import { getCart, getAuthToken, getLoggedInUser, CartItem, getCartRestaurantId } from '@/lib/utils';
 import { type SavedAddress, loadAddresses, saveAddresses, loadPhone, savePhone } from '@/lib/address';
 
 declare global {
@@ -80,8 +80,16 @@ export default function PaymentPage() {
   const [showSavePrompt, setShowSavePrompt]       = useState(false);
   const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(false);
   const [mounted, setMounted]                     = useState(false);
+  const [restaurants, setRestaurants]             = useState<any[]>([]);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>('');
   // true when user has saved phone + address — show compact summary, hide full form
   const [quickCheckout, setQuickCheckout]         = useState(false);
+  const [offerStatus, setOfferStatus]             = useState({
+    loading: true,
+    eligible: false,
+    message: 'Checking offer eligibility...',
+    discount: 0,
+  });
 
   const debounceRef   = useRef<NodeJS.Timeout | null>(null);
   const geocoderRef   = useRef<any>(null);
@@ -93,6 +101,9 @@ export default function PaymentPage() {
     const c = getCart();
     if (!c.length) { router.replace('/cart'); return; }
     setCart(c);
+    checkOfferEligibility(c);
+    const restaurantId = getCartRestaurantId();
+    if (restaurantId) setSelectedRestaurantId(restaurantId);
 
     fetch('/api/config/payment-settings')
       .then(r => r.json())
@@ -141,6 +152,12 @@ export default function PaymentPage() {
       sessionTok.current  = new window.google.maps.places.AutocompleteSessionToken();
       setMapsReady(true);
     });
+
+    // Fetch restaurants
+    fetch('/api/restaurants')
+      .then(r => r.json())
+      .then(setRestaurants)
+      .catch(console.error);
   }, []); // eslint-disable-line
 
   useEffect(() => {
@@ -151,6 +168,54 @@ export default function PaymentPage() {
     document.addEventListener('click', h);
     return () => document.removeEventListener('click', h);
   }, []);
+
+  async function checkOfferEligibility(itemsToCheck: CartItem[]) {
+    if (!itemsToCheck.length) {
+      setOfferStatus({
+        loading: false,
+        eligible: false,
+        message: 'Add a tiffin item to unlock First Tiffin FREE.',
+        discount: 0,
+      });
+      return;
+    }
+
+    setOfferStatus(prev => ({ ...prev, loading: true }));
+    const token = getAuthToken();
+    try {
+      const res = await fetch('/api/offers/first-tiffin-eligibility', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ items: itemsToCheck }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setOfferStatus({
+          loading: false,
+          eligible: false,
+          message: 'Unable to check offer status right now.',
+          discount: 0,
+        });
+        return;
+      }
+      setOfferStatus({
+        loading: false,
+        eligible: !!data.eligible,
+        message: typeof data.message === 'string' ? data.message : 'Offer status unavailable.',
+        discount: Number(data.offerDiscount || 0),
+      });
+    } catch {
+      setOfferStatus({
+        loading: false,
+        eligible: false,
+        message: 'Unable to check offer status right now.',
+        discount: 0,
+      });
+    }
+  }
 
   async function getSuggestions(input: string) {
     if (!input || input.trim().length < 3 || !mapsReady) { setSuggestions([]); return; }
@@ -254,8 +319,9 @@ export default function PaymentPage() {
     } else { setCouponMsg('❌ Invalid coupon or minimum ₹200 required.'); }
   }
 
-  const subtotal   = cart.reduce((s, i) => s + i.price * (i.quantity || 1), 0);
-  const finalTotal = subtotal - discount + deliveryFee;
+  const subtotal      = cart.reduce((s, i) => s + i.price * (i.quantity || 1), 0);
+  const offerDiscount = offerStatus.eligible ? offerStatus.discount : 0;
+  const finalTotal    = Math.max(0, subtotal - discount - offerDiscount + deliveryFee);
 
   function saveCurrentAddress(label: string) {
     const u = getLoggedInUser();
@@ -298,7 +364,7 @@ export default function PaymentPage() {
     }
 
     setLoading(true);
-    const payload = { items: cart, customerName: name, contact, phone: phone.trim(), address, couponCode: appliedCoupon, deliveryFee, customerLat, customerLng };
+    const payload = { items: cart, customerName: name, contact, phone: phone.trim(), address, couponCode: appliedCoupon, deliveryFee, customerLat, customerLng, restaurantId: selectedRestaurantId || null };
 
     if (payMethod === 'cod') {
       const res  = await fetch('/api/checkout-cod', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' }, body: JSON.stringify(payload) });
@@ -321,6 +387,10 @@ export default function PaymentPage() {
     const base = window.location.origin;
     const res  = await fetch('/api/create-stripe-checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' }, body: JSON.stringify({ ...payload, successUrl: `${base}/my-orders?session_id={CHECKOUT_SESSION_ID}`, cancelUrl: `${base}/payment` }) });
     const data = await res.json();
+    if (data.freeOrder && data.success) {
+      localStorage.removeItem('cart'); window.dispatchEvent(new Event('cartUpdated')); router.push('/my-orders');
+      return;
+    }
     if (data.url) {
       if (isLoggedIn && !selectedAddrId && flat && area && city && pincode) {
         const u2 = getLoggedInUser();
@@ -347,12 +417,41 @@ export default function PaymentPage() {
           {/* Order summary */}
           <div style={{ marginBottom: '1.5rem', padding: '1.5rem', background: '#f8f9fa', borderRadius: 8, textAlign: 'center', color: '#2c3e50', lineHeight: 1.6 }}>
             <strong>{cart.reduce((s, i) => s + (i.quantity || 1), 0)} Item(s)</strong> | Subtotal: ₹{subtotal}<br />
-            {discount > 0 && <span style={{ color: '#27ae60' }}>Discount: -₹{discount}<br /></span>}
+            {discount > 0 && <span style={{ color: '#27ae60' }}>Coupon Discount: -₹{discount}<br /></span>}
+            {offerDiscount > 0 && (
+              <span style={{ color: '#16a34a', fontWeight: 600 }}>
+                🎁 First Tiffin FREE: -₹{offerDiscount}<br />
+              </span>
+            )}
             <span style={{ color: '#27ae60' }}>Delivery: FREE 🚴<br /></span>
-            <span style={{ color: '#e67e22', fontSize: '1.5rem', fontWeight: 'bold' }}>Total: ₹{finalTotal}</span>
+            <span style={{ color: offerStatus.loading ? '#6b7280' : offerStatus.eligible ? '#16a34a' : '#e67e22', fontSize: '0.9rem' }}>
+              {offerStatus.loading ? 'Checking First Tiffin FREE eligibility...' : offerStatus.message}
+              <br />
+            </span>
+            <span style={{ color: finalTotal === 0 ? '#16a34a' : '#e67e22', fontSize: '1.5rem', fontWeight: 'bold' }}>
+              {finalTotal === 0 ? '🎉 Total: ₹0 — FREE!' : `Total: ₹${finalTotal}`}
+            </span>
           </div>
 
           <form className="payment-form" onSubmit={handleSubmit}>
+
+            {/* Restaurant Selection */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label htmlFor="restaurant" style={{ display: 'block', fontSize: '1rem', color: '#2c3e50', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                Select Restaurant (Optional)
+              </label>
+              <select
+                id="restaurant"
+                value={selectedRestaurantId}
+                onChange={(e) => setSelectedRestaurantId(e.target.value)}
+                style={{ ...inp, marginBottom: 0 }}
+              >
+                <option value="">Choose a restaurant...</option>
+                {restaurants.map((r) => (
+                  <option key={r._id} value={r._id}>{r.name} - {r.address}</option>
+                ))}
+              </select>
+            </div>
 
             {/* ── QUICK CHECKOUT MODE — phone + address already saved ── */}
             {quickCheckout && isLoggedIn ? (
@@ -541,7 +640,7 @@ export default function PaymentPage() {
             </div>
 
             <button className="btn" style={{ width: '100%', marginTop: '1rem', padding: 15, fontSize: '1.1rem', borderRadius: 8 }} disabled={loading}>
-              {loading ? 'Processing…' : payMethod === 'cod' ? `Confirm Order (₹${finalTotal} COD)` : `Pay ₹${finalTotal} Securely`}
+              {loading ? 'Processing…' : finalTotal === 0 ? '🎁 Claim Free Tiffin' : payMethod === 'cod' ? `Confirm Order (₹${finalTotal} COD)` : `Pay ₹${finalTotal} Securely`}
             </button>
             {message && <p style={{ color: 'red', textAlign: 'center', marginTop: '1rem' }}>{message}</p>}
           </form>

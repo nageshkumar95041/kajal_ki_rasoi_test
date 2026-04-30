@@ -4,6 +4,9 @@ process.env.STRIPE_SECRET_KEY = 'sk_test_dummy';
 import { NextRequest } from 'next/server';
 import { signToken } from '@/lib/auth';
 
+jest.mock('@/lib/socket', () => ({ emitOrderUpdate: jest.fn() }));
+jest.mock('@/lib/borzo', () => ({ createBorzoDelivery: jest.fn().mockResolvedValue(undefined) }));
+
 function makeRequest(
   url: string,
   body: Record<string, unknown>,
@@ -146,7 +149,82 @@ describe('POST /api/create-stripe-checkout', () => {
     expect(await res.json()).toEqual({
       id: 'sess_order_123',
       url: 'https://stripe.test/checkout/sess_order_123',
+      newCustomerOfferApplied: false,
+      newCustomerOfferDiscount: 0,
     });
+  });
+
+  it('creates a free order directly for eligible new users with a single tiffin', async () => {
+    const createSessionMock = jest.fn().mockResolvedValue({
+      id: 'sess_order_free',
+      url: 'https://stripe.test/checkout/sess_order_free',
+    });
+    const orderCreateMock = jest.fn().mockResolvedValue({ _id: 'order-free-123' });
+    const token = signToken({ id: 'user-id-123', role: 'user' });
+
+    jest.doMock('stripe', () => ({
+      default: jest.fn().mockImplementation(() => ({
+        checkout: {
+          sessions: {
+            create: createSessionMock,
+          },
+        },
+      })),
+    }));
+    jest.doMock('@/lib/mongodb', () => ({ connectDB: jest.fn().mockResolvedValue(undefined) }));
+    jest.doMock('@/lib/models', () => ({
+      MenuItem: {
+        find: jest.fn().mockResolvedValue([]),
+      },
+      TiffinItem: {
+        find: jest.fn().mockResolvedValue([{ name: 'Mini Tiffin', price: 80 }]),
+      },
+      TempCart: {
+        create: jest.fn(),
+      },
+      Order: {
+        countDocuments: jest.fn().mockResolvedValue(0),
+        create: orderCreateMock,
+      },
+      Notification: {
+        create: jest.fn(),
+      },
+      Restaurant: {
+        findById: jest.fn(),
+      },
+    }));
+
+    const { POST } = await import('@/app/api/create-stripe-checkout/route');
+    const res = await POST(
+      makeRequest(
+        URL,
+        {
+          items: [{ name: 'Mini Tiffin', quantity: 1 }],
+          customerName: 'New User',
+          contact: 'newuser@test.com',
+          phone: '9999999999',
+          address: 'Sector 1, Noida',
+        },
+        { token }
+      )
+    );
+
+    expect(res.status).toBe(200);
+    expect(createSessionMock).not.toHaveBeenCalled();
+    expect(orderCreateMock).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'user-id-123',
+      total: 0,
+      newCustomerOfferApplied: true,
+      newCustomerOfferDiscount: 80,
+      newCustomerOfferItemName: 'Mini Tiffin',
+    }));
+    expect(await res.json()).toEqual(expect.objectContaining({
+      success: true,
+      freeOrder: true,
+      orderId: 'order-free-123',
+      newCustomerOfferApplied: true,
+      newCustomerOfferDiscount: 80,
+    }));
   });
 });
 

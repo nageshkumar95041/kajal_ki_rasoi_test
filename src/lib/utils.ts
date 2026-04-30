@@ -42,18 +42,46 @@ export interface CartItem {
   quantity: number;
 }
 
+export interface CartData {
+  items: CartItem[];
+  restaurantId?: string;
+}
+
 export function getCart(): CartItem[] {
   if (typeof window === 'undefined') return [];
   try {
-    return JSON.parse(localStorage.getItem('cart') || '[]');
+    const parsed: unknown = JSON.parse(localStorage.getItem('cart') || '{"items":[]}');
+    const items = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray((parsed as CartData).items)
+        ? (parsed as CartData).items
+        : [];
+
+    return items.map((item: any) => ({
+      name: item?.name ?? '',
+      price: Number(item?.price) || 0,
+      quantity: Number(item?.quantity) > 0 ? Number(item.quantity) : 1,
+    }));
   } catch {
     return [];
   }
 }
 
-export function saveCart(cart: CartItem[]) {
+export function getCartRestaurantId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const data: CartData = JSON.parse(localStorage.getItem('cart') || '{"items":[]}');
+    return data.restaurantId || null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveCart(cart: CartItem[], restaurantId?: string) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem('cart', JSON.stringify(cart));
+  const data: CartData = { items: cart };
+  if (restaurantId) data.restaurantId = restaurantId;
+  localStorage.setItem('cart', JSON.stringify(data));
 }
 
 export function getCartCount(): number {
@@ -65,7 +93,14 @@ export function getAuthToken(): string | null {
   return localStorage.getItem('authToken');
 }
 
-export function getLoggedInUser(): { name: string; contact: string; role: string } | null {
+export interface LoggedInUser {
+  name: string;
+  contact: string;
+  role: string;
+  hasRestaurant?: boolean;
+}
+
+export function getLoggedInUser(): LoggedInUser | null {
   if (typeof window === 'undefined') return null;
   try {
     const u = localStorage.getItem('loggedInUser');

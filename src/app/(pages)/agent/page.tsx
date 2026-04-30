@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { usePushSubscription } from '@/lib/usePushSubscription';
 
 interface OrderItem { name: string; quantity: number; }
 interface AssignedOrder {
@@ -9,6 +10,8 @@ interface AssignedOrder {
   contact?: string;
   phone?: string;
   address: string;
+  restaurantName?: string;
+  restaurantAddress?: string;
   items: OrderItem[];
   total: number;
   paymentMethod: string;
@@ -66,6 +69,9 @@ function OrderCard({
   const mapsUrl = order.customerLat && order.customerLng
     ? `https://www.google.com/maps/dir/?api=1&destination=${order.customerLat},${order.customerLng}`
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.address)}`;
+  const pickupMapsUrl = order.restaurantAddress
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.restaurantAddress)}`
+    : null;
 
   if (delivered) {
     return (
@@ -113,6 +119,17 @@ function OrderCard({
 
       {/* Customer info */}
       <div style={{ background: '#faf8f4', borderRadius: 10, padding: '12px 14px', marginBottom: 14 }}>
+        {order.restaurantAddress && (
+          <div style={{ marginBottom: 8 }}>
+            <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+              Pickup Restaurant
+            </p>
+            <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 600, color: '#1f2937' }}>
+              {order.restaurantName || 'Restaurant'}
+            </p>
+            <p style={{ margin: 0, fontSize: 13, color: '#4b5563' }}>{order.restaurantAddress}</p>
+          </div>
+        )}
         <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>
           👤 {order.customerName}
         </p>
@@ -149,6 +166,19 @@ function OrderCard({
 
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {pickupMapsUrl && (
+          <a
+            href={pickupMapsUrl}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              flex: 1, padding: '12px 10px', borderRadius: 10, background: '#7c3aed', color: 'white',
+              textAlign: 'center', textDecoration: 'none', fontWeight: 600, fontSize: 14,
+            }}
+          >
+            Pickup Route
+          </a>
+        )}
         <a
           href={mapsUrl}
           target="_blank"
@@ -158,7 +188,7 @@ function OrderCard({
             textAlign: 'center', textDecoration: 'none', fontWeight: 600, fontSize: 14,
           }}
         >
-          🗺️ Navigate
+          🗺️ Customer Route
         </a>
         <button
           onClick={() => { setShowOtpInput(v => !v); setErr(''); setOtp(''); }}
@@ -223,6 +253,7 @@ function OrderCard({
 
 export default function AgentPage() {
   const { user, token, loading } = useAuth(true);
+  const { subscribed } = usePushSubscription(token ?? null);
   const [orders, setOrders] = useState<AssignedOrder[]>([]);
   const [agentInfo, setAgentInfo] = useState<AgentInfo | null>(null);
   const [fetching, setFetching] = useState(true);
@@ -278,7 +309,10 @@ export default function AgentPage() {
         prevOrderCountRef.current = newCount;
 
         setOrders(incoming);
-        if (data.agentInfo) setAgentInfo(data.agentInfo);
+        if (data.agentInfo) {
+          setAgentInfo(data.agentInfo);
+          setOnline(data.agentInfo.status === 'Available' || data.agentInfo.status === 'Busy');
+        }
 
         if (isNewOrder) {
           // 🔊 Audio alert
@@ -421,6 +455,9 @@ export default function AgentPage() {
               Active orders: {agentInfo.currentLoad} / {agentInfo.maxBatchLimit}
             </p>
           )}
+          <p style={{ margin: '8px 0 0', fontSize: 12, color: subscribed ? '#16a34a' : '#9ca3af' }}>
+            {subscribed ? '🔔 Push notifications active' : '🔕 Enabling push notifications…'}
+          </p>
         </div>
 
         {/* Orders header */}
@@ -493,3 +530,4 @@ export default function AgentPage() {
     </div>
   );
 }
+

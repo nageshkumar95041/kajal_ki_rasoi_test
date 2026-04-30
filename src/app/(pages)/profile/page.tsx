@@ -9,11 +9,23 @@ import { type SavedAddress, loadAddresses, saveAddresses } from '@/lib/address';
 
 const LABELS = ['Home', 'Work', 'Other'];
 
+interface RestaurantProfile {
+  _id: string;
+  name: string;
+  contact: string;
+  address: string;
+  description?: string;
+  estimatedDeliveryTime?: number;
+  isOpen?: boolean;
+}
+
 const blank = (): Omit<SavedAddress, 'id' | 'isDefault'> => ({ label: 'Home', flat: '', area: '', landmark: '', city: '', pincode: '' });
 
 export default function ProfilePage() {
   const { user, token, loading, logout } = useAuth(true);
   const [profile, setProfile]           = useState<{ name: string; contact: string } | null>(null);
+  const [restaurantProfile, setRestaurantProfile] = useState<RestaurantProfile | null>(null);
+  const [checkingRestaurantProfile, setCheckingRestaurantProfile] = useState(true);
   const [lastOrderName, setLastOrderName] = useState('Loading...');
 
   const [editOpen, setEditOpen]   = useState(false);
@@ -29,33 +41,72 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!token) return;
-    fetch('/api/profile', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json()).then(d => {
-        if (d.success) {
-          setProfile(d.user);
-          setAddresses(loadAddresses(d.user.contact));
-          const legacy = localStorage.getItem(`savedDeliveryAddress_${d.user.contact}`);
+    let ignore = false;
+
+    async function loadProfile() {
+      try {
+        const profileRes = await fetch('/api/profile', { headers: { Authorization: `Bearer ${token}` } });
+        const profileData = await profileRes.json();
+
+        if (ignore) return;
+        if (profileData.success) {
+          setProfile(profileData.user);
+          setAddresses(loadAddresses(profileData.user.contact));
+          const legacy = localStorage.getItem(`savedDeliveryAddress_${profileData.user.contact}`);
           if (legacy) {
             try {
               const old = JSON.parse(legacy);
-              const existing = loadAddresses(d.user.contact);
+              const existing = loadAddresses(profileData.user.contact);
               if (existing.length === 0 && old.flat) {
                 const migrated: SavedAddress = { id: Date.now().toString(), label: 'Home', flat: old.flat || '', area: old.area || '', landmark: old.landmark || '', city: old.city || '', pincode: old.pincode || '', isDefault: true };
-                saveAddresses(d.user.contact, [migrated]);
+                saveAddresses(profileData.user.contact, [migrated]);
                 setAddresses([migrated]);
-                localStorage.removeItem(`savedDeliveryAddress_${d.user.contact}`);
+                localStorage.removeItem(`savedDeliveryAddress_${profileData.user.contact}`);
               }
             } catch {}
           }
         }
-      });
-    fetch('/api/my-orders?limit=1', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json()).then(orders => {
-        if (Array.isArray(orders) && orders.length > 0 && orders[0].items?.length > 0)
-          setLastOrderName(orders[0].items.map((i: { name: string }) => i.name).join(', '));
-        else setLastOrderName('No past orders');
-      });
-  }, [token]);
+
+        const restaurantRes = await fetch('/api/my-restaurant', { headers: { Authorization: `Bearer ${token}` } });
+        if (ignore) return;
+
+        if (restaurantRes.ok) {
+          const restaurantData = await restaurantRes.json();
+          setRestaurantProfile(restaurantData);
+          setLastOrderName('Restaurant Owner');
+
+          if (profileData?.success && profileData.user) {
+            localStorage.setItem(
+              'loggedInUser',
+              JSON.stringify({
+                ...(user || {}),
+                name: profileData.user.name,
+                contact: profileData.user.contact,
+                role: user?.role || 'user',
+                hasRestaurant: true,
+              })
+            );
+          }
+        } else {
+          setRestaurantProfile(null);
+          const ordersRes = await fetch('/api/my-orders?limit=1', { headers: { Authorization: `Bearer ${token}` } });
+          const orders = await ordersRes.json();
+          if (!ignore) {
+            if (Array.isArray(orders) && orders.length > 0 && orders[0].items?.length > 0) {
+              setLastOrderName(orders[0].items.map((i: { name: string }) => i.name).join(', '));
+            } else {
+              setLastOrderName('No past orders');
+            }
+          }
+        }
+      } finally {
+        if (!ignore) setCheckingRestaurantProfile(false);
+      }
+    }
+
+    loadProfile();
+    return () => { ignore = true; };
+  }, [token, user]);
 
   function openEdit() { setEditName(profile?.name || ''); setEditMsg(''); setEditOpen(true); }
   async function saveEdit(e: React.FormEvent) {
@@ -66,7 +117,14 @@ export default function ProfilePage() {
     const data = await res.json();
     if (data.success) {
       setProfile(data.user);
-      localStorage.setItem('loggedInUser', JSON.stringify(data.user));
+      localStorage.setItem(
+        'loggedInUser',
+        JSON.stringify({
+          ...(user || {}),
+          ...data.user,
+          hasRestaurant: restaurantProfile ? true : user?.hasRestaurant,
+        })
+      );
       setEditOpen(false);
     } else { setEditMsg(data.message || 'Failed to update.'); }
     setEditSaving(false);
@@ -109,7 +167,82 @@ export default function ProfilePage() {
     setAddresses(list);
   }
 
-  if (loading) return <div style={{ padding: '6rem 1rem', textAlign: 'center' }}>Loading...</div>;
+  if (loading || checkingRestaurantProfile) return <div style={{ padding: '6rem 1rem', textAlign: 'center' }}>Loading...</div>;
+
+  if (restaurantProfile) {
+    return (
+      <>
+        <Navbar scrolled />
+        <section className="profile-page">
+          <div className="profile-header-card">
+            <div className="profile-info-row">
+              <div className="profile-avatar" id="profile-initials">{profile?.name?.charAt(0).toUpperCase() || '?'}</div>
+              <div className="profile-details">
+                <h2>{profile?.name || user?.name || 'Restaurant Owner'}</h2>
+                <p>{profile?.contact || user?.contact}</p>
+                <p className="profile-loyalty-text">Restaurant Partner</p>
+              </div>
+              <button className="btn-edit-profile" onClick={openEdit}>Edit</button>
+            </div>
+          </div>
+
+          <div className="quick-actions-container">
+            <Link href="/restaurant/dashboard" className="quick-action-btn primary" style={{ textDecoration: 'none' }}>
+              <span className="icon">Store</span>
+              <div className="text-left">
+                <p className="qa-title">Restaurant Dashboard</p>
+                <p className="qa-subtitle">Orders, menu, delivery</p>
+              </div>
+            </Link>
+            <Link href="/restaurant/dashboard" className="quick-action-btn secondary" style={{ textDecoration: 'none' }}>
+              <span className="icon" style={{ color: '#0f766e' }}>Manage</span>
+              <div className="text-left"><p className="qa-title">Operations</p><p className="qa-subtitle" style={{ color: '#333' }}>{restaurantProfile.name}</p></div>
+            </Link>
+          </div>
+
+          <div className="profile-menu-list">
+            <Link href="/restaurant/dashboard" className="profile-menu-item">
+              <div className="menu-item-left"><span className="menu-icon">Dashboard</span><div><h4>Open Dashboard</h4><p>Manage orders, menu, and delivery</p></div></div><span className="chevron">›</span>
+            </Link>
+
+            <div className="profile-menu-item" style={{ flexDirection: 'column', alignItems: 'stretch', cursor: 'default' }}>
+              <div className="menu-item-left">
+                <span className="menu-icon">Restaurant</span>
+                <div><h4>{restaurantProfile.name}</h4><p>Current restaurant profile details</p></div>
+              </div>
+              <div style={{ marginTop: '0.8rem', fontSize: '0.9rem', color: '#555', lineHeight: 1.7 }}>
+                <p style={{ margin: 0 }}><strong>Contact:</strong> {restaurantProfile.contact}</p>
+                <p style={{ margin: 0 }}><strong>Address:</strong> {restaurantProfile.address}</p>
+                <p style={{ margin: 0 }}><strong>Status:</strong> {restaurantProfile.isOpen === false ? 'Closed' : 'Open'}</p>
+                <p style={{ margin: 0 }}><strong>Delivery Time:</strong> {restaurantProfile.estimatedDeliveryTime || 30} min</p>
+                {restaurantProfile.description && <p style={{ margin: 0 }}><strong>About:</strong> {restaurantProfile.description}</p>}
+              </div>
+            </div>
+          </div>
+
+          <div className="profile-logout-container">
+            <button className="btn-logout" onClick={logout}>Secure Logout</button>
+          </div>
+        </section>
+
+        {editOpen && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+            <div style={{ background: '#fff', borderRadius: 16, padding: '2rem', width: '100%', maxWidth: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+              <h3 style={{ marginBottom: '1.2rem', fontWeight: 700 }}>Edit Name</h3>
+              <form onSubmit={saveEdit}>
+                <input type="text" value={editName} onChange={e => setEditName(e.target.value)} required placeholder="Your name" style={{ width: '100%', padding: '12px 14px', border: '1px solid #ddd', borderRadius: 8, fontSize: '1rem', boxSizing: 'border-box', marginBottom: '0.8rem' }} />
+                {editMsg && <p style={{ color: '#e74c3c', fontSize: '0.85rem', marginBottom: '0.5rem' }}>{editMsg}</p>}
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button type="button" onClick={() => setEditOpen(false)} style={{ flex: 1, padding: 11, borderRadius: 8, border: '1px solid #ddd', background: '#f5f5f5', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                  <button type="submit" disabled={editSaving} style={{ flex: 1, padding: 11, borderRadius: 8, border: 'none', background: '#e67e22', color: '#fff', cursor: 'pointer', fontWeight: 700 }}>{editSaving ? 'Saving…' : 'Save'}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <>

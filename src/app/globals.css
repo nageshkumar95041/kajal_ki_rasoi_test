@@ -5244,3 +5244,93 @@ html, body {
     justify-content: center;
   }
 }
+
+/* Navbar mobile stability: keep top row compact without changing desktop behavior */
+@media (max-width: 768px) {
+  #navbar {
+    padding: 0.9rem 4%;
+    gap: 10px;
+  }
+
+  .logo {
+    min-width: 0;
+  }
+
+  .logo a {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .nav-right {
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .nav-notification-bell > button {
+    font-size: 1.25rem !important;
+    padding: 0.25rem !important;
+  }
+
+  .nav-cart-icon {
+    padding: 6px 10px;
+    font-size: 12px;
+    gap: 4px;
+    white-space: nowrap;
+  }
+
+  .nav-cart-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .nav-cart-label {
+    display: none;
+  }
+
+  #cart-count {
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+  }
+
+  .nav-avatar-circle {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
+  }
+
+  .menu-toggle {
+    font-size: 1.6rem;
+    line-height: 1;
+  }
+}
+
+/* Extra-tight phones: prioritize brand + primary actions */
+@media (max-width: 420px) {
+  #navbar {
+    padding: 0.8rem 3%;
+    gap: 8px;
+  }
+
+  .logo {
+    font-size: 20px !important;
+  }
+
+  .nav-right {
+    gap: 6px;
+  }
+
+  #navbar:not(.restaurant-dashboard-nav) .nav-notification-bell {
+    display: none;
+  }
+
+  .nav-cart-icon {
+    padding: 5px 8px;
+  }
+
+  .menu-toggle {
+    font-size: 1.5rem;
+  }
+}
